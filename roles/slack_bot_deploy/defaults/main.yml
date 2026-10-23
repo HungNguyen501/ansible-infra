@@ -1,0 +1,17 @@
+---
+# Directory on the host that holds the compose files.
+slack_bot_deploy_dir: /var/workspace/agentic-slack-bot
+
+# Compose services started by a deploy and restarted by the restart playbook.
+slack_bot_deploy_services:
+  - redis
+  - receiver
+  - worker
+  - scheduler
+  - ngrok
+
+# Number of worker containers (WORKER_COUNT in docker-compose.yml).
+slack_bot_deploy_worker_count: 2
+
+# Non-secret environment of the compose project, as NAME: value. Used to fill the ${NAME} references in docker-compose.yml.
+slack_bot_deploy_env: {}

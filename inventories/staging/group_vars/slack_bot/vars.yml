@@ -1,0 +1,19 @@
+---
+# Settings of the Agentic Slack Bot in staging. Environment values are aliased from group_vars/all/vault.yml.
+# The image tag is not here: pass it with make check|deploy ENV=staging IMAGE_TAG=<tag>.
+slack_bot_deploy_dir: /var/workspace/agentic-slack-bot
+slack_bot_deploy_image_repo: hungwnguyen/agentic-slack-bot
+slack_bot_deploy_worker_count: 4
+
+# Every environment value of the compose project is aliased from group_vars/all/vault.yml, so none is written here.
+slack_bot_deploy_secret_env:
+  SUPABASE_DB_URL: "{{ vault_slack_bot_supabase_db_url }}"
+  NGROK_AUTHTOKEN: "{{ vault_slack_bot_ngrok_authtoken }}"
+  OPENAI_API_KEY: "{{ vault_slack_bot_openai_api_key }}"
+  DATABRICKS_HOST: "{{ vault_slack_bot_databricks_host }}"
+  DATABRICKS_WAREHOUSE_ID: "{{ vault_slack_bot_databricks_warehouse_id }}"
+  DATABRICKS_ACCESS_TOKEN: "{{ vault_slack_bot_databricks_access_token }}"
+  GITHUB_APP_ID: "{{ vault_slack_bot_github_app_id }}"
+  GITHUB_APP_PRIVATE_KEY: "{{ vault_slack_bot_github_app_private_key }}"
+  SECRET_ENCRYPTION_KEY: "{{ vault_slack_bot_secret_encryption_key }}"
+  SECRET_LINK_BASE_URL: "{{ vault_slack_bot_secret_link_base_url }}"

@@ -4,7 +4,7 @@
 
 Ansible automation for ansible-infra
 
-Stack: Ansible (`ansible-core`) managed with `uv`, `ansible-lint` (production profile), `yamllint`, Molecule for role tests, Make for commands. Environments: `staging`, `production`. Hosts are reached over SSH.
+Stack: Ansible (`ansible-core`) managed with `uv`, `ansible-lint` (production profile), `yamllint`, Molecule for role tests, Make for commands. Environments: `staging`, `production`. Hosts are reached over SSH, except the `slack_bot` hosts, which use AWS SSM Session Manager (`amazon.aws.aws_ssm`).
 
 ## Working rules
 
@@ -17,7 +17,7 @@ Stack: Ansible (`ansible-core`) managed with `uv`, `ansible-lint` (production pr
 
 - Install: `make install`
 - Lint: `make lint`, then `make syntax`
-- Test roles: `make test` (needs Docker)
+- Test roles: `make test` (needs Docker with the Compose v2 plugin)
 - Dry run: `make check ENV=<env>`
 - Full list: `make help`
 
@@ -28,10 +28,11 @@ ansible-infra/
 ├── inventories/<env>/   hosts.yml, group_vars/all/{vars,vault}.yml, one directory per environment
 ├── playbooks/           site.yml imports one playbook per host type
 ├── roles/               one role per function, each with a Molecule scenario
+├── molecule/            base.yml: the platforms and provisioner shared by every Molecule scenario
 ├── scripts/             run-playbook.sh, vault-init.sh, check-vault-encrypted.sh
 ├── .github/             CI, check and apply workflows, PR and commit templates
 ├── ansible.cfg  requirements.yml  pyproject.toml  Makefile
-├── .ansible-lint  .yamllint  .pre-commit-config.yaml
+├── .ansible-lint  .yamllint  .gitleaks.toml  .pre-commit-config.yaml
 └── AGENTS.md  README.md
 ```
 

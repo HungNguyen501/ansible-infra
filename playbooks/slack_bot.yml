@@ -1,0 +1,12 @@
+---
+# Type playbook: a list of roles. Keep logic in the roles.
+# Tag: slack_bot_deploy (everything). To restart without a deploy, use playbooks/slack_bot_restart.yml.
+- name: Deploy the Agentic Slack Bot
+  hosts: slack_bot
+  gather_facts: false
+  serial: 1
+  max_fail_percentage: 0
+  roles:
+    - role: slack_bot_deploy
+      tags:
+        - slack_bot_deploy

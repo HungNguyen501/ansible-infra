@@ -1,0 +1,25 @@
+---
+# A killed run is simulated by an environment directory older than the sweep age (6 hours). The first converge must remove it.
+# The second file is the override of earlier versions of the role. Staging must remove it.
+- name: Prepare
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Prepare | Leave an environment directory of a killed run
+      ansible.builtin.file:
+        path: /run/slack-bot-deploy-killedrun
+        state: directory
+        mode: "0700"
+        modification_time: "202001010000.00"
+
+    - name: Prepare | Create the deploy directory
+      ansible.builtin.file:
+        path: /var/workspace/agentic-slack-bot
+        state: directory
+        mode: "0755"
+
+    - name: Prepare | Leave the override file of earlier versions
+      ansible.builtin.copy:
+        content: "services: {}\n"
+        dest: /var/workspace/agentic-slack-bot/docker-compose.prod.yml
+        mode: "0644"

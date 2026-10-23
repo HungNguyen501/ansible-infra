@@ -1,0 +1,6 @@
+---
+- name: Slack bot deploy | Stage compose files
+  ansible.builtin.import_tasks: stage.yml
+
+- name: Slack bot deploy | Start services
+  ansible.builtin.import_tasks: compose.yml

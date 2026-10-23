@@ -1,0 +1,15 @@
+---
+# Operation playbook, not imported by site.yml: it restarts the running containers, without pulling and without an image tag.
+# Run: make deploy ENV=<env> PLAYBOOK=playbooks/slack_bot_restart.yml [SERVICE=<name>[,<name>]] [CONFIRM=apply-<env>]
+- name: Restart the Agentic Slack Bot
+  hosts: slack_bot
+  gather_facts: false
+  serial: 1
+  max_fail_percentage: 0
+  tasks:
+    - name: Restart the services of the slack_bot_deploy role
+      ansible.builtin.import_role:
+        name: slack_bot_deploy
+        tasks_from: restart.yml
+      tags:
+        - slack_bot_deploy

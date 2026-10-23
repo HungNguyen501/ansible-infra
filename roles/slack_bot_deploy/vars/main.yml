@@ -1,0 +1,13 @@
+---
+# Internal values. Callers do not override these; tunables belong in defaults/main.yml.
+__slack_bot_deploy_compose_files:
+  - docker-compose.yml
+
+# Environment handed to docker compose for ${NAME} interpolation. The env_write.yml task puts it in a file for the length of
+# one compose call, in a directory of its own per call (__slack_bot_deploy_env_dir and _env_file are facts it sets).
+# /run is tmpfs, so the secrets never reach the disk and a file left by a killed run is gone at reboot.
+__slack_bot_deploy_env_dir_prefix: /run/slack-bot-deploy-
+
+__slack_bot_deploy_compose_env: >-
+  {{ slack_bot_deploy_env
+  | combine(slack_bot_deploy_secret_env, {'WORKER_COUNT': slack_bot_deploy_worker_count | string}) }}

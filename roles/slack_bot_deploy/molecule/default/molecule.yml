@@ -1,0 +1,12 @@
+---
+# Tests the staged compose file and the env file handling. docker compose itself needs a Docker daemon inside the instance, so lint and --check cover that part.
+# Platforms, driver and provisioner come from molecule/base.yml at the repository root (make test passes it with -c).
+# Run Molecule by hand with: uv run molecule -c ../../molecule/base.yml <command>
+provisioner:
+  inventory:
+    group_vars:
+      all:
+        slack_bot_deploy_image_repo: example/slack-bot
+        slack_bot_deploy_image_tag: v0.0.0
+        slack_bot_deploy_secret_env:
+          EXAMPLE_SECRET: "line one\nline two"

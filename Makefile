@@ -5,7 +5,7 @@ PROTECTED_ENVS := production
 PLAYBOOK ?= playbooks/site.yml
 export VAULT_DIR ?= $(HOME)/.vault
 # Passed to scripts/run-playbook.sh through the environment, never spliced into a shell command line.
-export PLAYBOOK LIMIT TAGS SKIP_TAGS
+export PLAYBOOK LIMIT TAGS SKIP_TAGS IMAGE_TAG SERVICE
 export ANSIBLE_COLLECTIONS_PATH := $(CURDIR)/.ansible/collections
 
 MAKEFLAGS += -s
@@ -39,15 +39,16 @@ syntax:
 		uv run ansible-playbook --syntax-check -i inventories/$$env $(PLAYBOOK) || exit 1; \
 	done
 
-test:  # molecule: every role that has a molecule/ folder. Needs a running Docker daemon.
+test:  # molecule: every role that has a molecule/ folder. Needs a running Docker daemon and the Compose v2 plugin.
+	@docker compose version >/dev/null 2>&1 || { echo "error: make test needs Docker with the Compose v2 plugin (docker compose version)" >&2; exit 1; }
 	@for dir in roles/*/molecule; do \
 		[ -d "$$dir" ] || continue; \
 		role=$$(dirname "$$dir"); \
 		echo "==> molecule test $$role"; \
-		(cd "$$role" && uv run molecule test) || exit 1; \
+		(cd "$$role" && uv run molecule -c "$(CURDIR)/molecule/base.yml" test) || exit 1; \
 	done
 
-check: check-env  # dry run with a diff: make check ENV=staging [PLAYBOOK=..] [LIMIT=..] [TAGS=..] [SKIP_TAGS=..]
+check: check-env  # dry run with a diff: make check ENV=staging [PLAYBOOK=..] [LIMIT=..] [TAGS=..] [SKIP_TAGS=..] [IMAGE_TAG=..] [SERVICE=..]
 	@ENVIRONMENT=$(ENV) MODE=check uv run scripts/run-playbook.sh
 
 deploy: check-env  # real run. Protected environments also need CONFIRM=apply-<env>
@@ -69,8 +70,10 @@ help: Makefile
 	@echo "  make lint                                 - yamllint and ansible-lint (production profile)"
 	@echo "  make scan                                 - gitleaks secret scan of the history (needs Docker)"
 	@echo "  make syntax                               - ansible-playbook --syntax-check for every environment"
-	@echo "  make test                                 - Molecule tests of every role (needs Docker)"
+	@echo "  make test                                 - Molecule tests of every role (needs Docker with Compose v2)"
 	@echo "  make check ENV=<env> [LIMIT= TAGS= ...]   - Dry run with a diff, changes nothing"
+	@echo "                                              Slack bot: add IMAGE_TAG=<tag> (the image tag to deploy)"
+	@echo "                                              and SERVICE=<name>[,<name>] for some services only (default: all)"
 	@echo "  make deploy ENV=<env> [CONFIRM=apply-<env>] - Apply for real (protected envs need CONFIRM)"
 	@echo "  make vault-init ENV=<env>                 - Create the encrypted vault.yml of an environment"
 	@echo "  make vault-edit ENV=<env>                 - Edit the encrypted vault.yml of an environment"

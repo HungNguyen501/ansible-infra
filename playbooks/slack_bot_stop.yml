@@ -1,0 +1,15 @@
+---
+# Operation playbook, not imported by site.yml: it takes the bot offline.
+# Run: make deploy ENV=<env> PLAYBOOK=playbooks/slack_bot_stop.yml CONFIRM=apply-<env>
+- name: Stop the Agentic Slack Bot
+  hosts: slack_bot
+  gather_facts: false
+  serial: 1
+  max_fail_percentage: 0
+  tasks:
+    - name: Stop the services of the slack_bot_deploy role
+      ansible.builtin.import_role:
+        name: slack_bot_deploy
+        tasks_from: stop.yml
+      tags:
+        - slack_bot_deploy

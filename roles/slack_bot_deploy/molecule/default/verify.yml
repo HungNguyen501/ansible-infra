@@ -1,0 +1,191 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Verify | Read the compose file
+      ansible.builtin.slurp:
+        src: /var/workspace/agentic-slack-bot/docker-compose.yml
+      register: slack_bot_deploy_verify_compose
+
+    - name: Verify | Assert the compose file runs the image of the role variables and builds nothing
+      ansible.builtin.assert:
+        that:
+          - "'image: example/slack-bot:v0.0.0' in (slack_bot_deploy_verify_compose.content | b64decode)"
+          - "'build:' not in (slack_bot_deploy_verify_compose.content | b64decode)"
+          - "'/app/worker/skills' not in (slack_bot_deploy_verify_compose.content | b64decode)"
+        fail_msg: docker-compose.yml does not run the image of the role variables, or still builds, or mounts the skills directory
+
+    - name: Verify | Stat the override file of earlier versions
+      ansible.builtin.stat:
+        path: /var/workspace/agentic-slack-bot/docker-compose.prod.yml
+      register: slack_bot_deploy_verify_prod
+
+    - name: Verify | Assert the override file of earlier versions is gone
+      ansible.builtin.assert:
+        that: not slack_bot_deploy_verify_prod.stat.exists
+        fail_msg: docker-compose.prod.yml was left on the host and may confuse a manual docker compose run
+
+    - name: Verify | Find environment directories on the host
+      ansible.builtin.find:
+        paths: /run
+        patterns: "slack-bot-deploy-*"
+        file_type: directory
+      register: slack_bot_deploy_verify_env
+
+    - name: Verify | Assert no environment directory is left, not even the one of a killed run
+      ansible.builtin.assert:
+        that: slack_bot_deploy_verify_env.matched == 0
+        fail_msg: "An environment directory with secrets was left on the host: {{ slack_bot_deploy_verify_env.files | map(attribute='path') | list }}"
+
+# docker compose config needs the Docker CLI, not a running daemon. It parses the file as a deploy would, so this is the
+# boundary where a change in the dotenv handling of Compose would change the secret a service receives.
+- name: Verify the environment file against docker compose
+  hosts: localhost
+  gather_facts: false
+  vars:
+    __slack_bot_deploy_compose_env:
+      PLAIN: hello
+      MULTILINE: "line one\nline two"
+      DOLLAR: "pa$$word${NOPE}"
+      BACKSLASH: 'C:\path\x'
+      WORKER_COUNT: "3"
+  tasks:
+    - name: Verify | Make a scratch directory
+      ansible.builtin.tempfile:
+        state: directory
+      register: slack_bot_deploy_verify_scratch
+
+    - name: Verify | Render the file and read it with docker compose
+      block:
+        - name: Verify | Render the environment file with the role template
+          ansible.builtin.template:
+            src: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}/templates/env.j2"
+            dest: "{{ slack_bot_deploy_verify_scratch.path }}/compose.env"
+            mode: "0600"
+
+        - name: Verify | Write a compose file that uses every value
+          ansible.builtin.copy:
+            dest: "{{ slack_bot_deploy_verify_scratch.path }}/docker-compose.yml"
+            mode: "0600"
+            content: |
+              services:
+                probe:
+                  image: busybox
+                  environment:
+                    PLAIN: ${PLAIN}
+                    MULTILINE: ${MULTILINE}
+                    DOLLAR: ${DOLLAR}
+                    BACKSLASH: ${BACKSLASH}
+                  deploy:
+                    replicas: ${WORKER_COUNT}
+
+        - name: Verify | Resolve the compose file
+          ansible.builtin.command:
+            argv:
+              # Compose lets exported variables win over --env-file. Unset the probes, so the file alone decides.
+              - env
+              - -u
+              - PLAIN
+              - -u
+              - MULTILINE
+              - -u
+              - DOLLAR
+              - -u
+              - BACKSLASH
+              - -u
+              - WORKER_COUNT
+              - docker
+              - compose
+              - --env-file
+              - "{{ slack_bot_deploy_verify_scratch.path }}/compose.env"
+              - -f
+              - "{{ slack_bot_deploy_verify_scratch.path }}/docker-compose.yml"
+              - config
+              - --format
+              - json
+          changed_when: false
+          no_log: true
+          register: slack_bot_deploy_verify_config
+
+        # compose config prints a dollar sign as two, so the expected values double theirs.
+        - name: Verify | Assert the service receives the original values
+          ansible.builtin.assert:
+            that:
+              - __probe.environment.PLAIN == 'hello'
+              - __probe.environment.MULTILINE == 'line one\nline two'
+              - __probe.environment.DOLLAR == 'pa$$word${NOPE}' | replace('$', '$$')
+              - __probe.environment.BACKSLASH == 'C:\\path\\x'
+              - __probe.deploy.replicas | int == 3
+          vars:
+            __probe: "{{ (slack_bot_deploy_verify_config.stdout | from_json).services.probe }}"
+          no_log: true
+      always:
+        - name: Verify | Remove the scratch directory
+          ansible.builtin.file:
+            path: "{{ slack_bot_deploy_verify_scratch.path }}"
+            state: absent
+
+# The compose file of the role, resolved by Compose as a deploy would. docker compose config needs the CLI, not a daemon.
+- name: Verify the compose file against docker compose
+  hosts: localhost
+  gather_facts: false
+  vars:
+    slack_bot_deploy_image_repo: example/slack-bot
+    slack_bot_deploy_image_tag: v0.0.0
+  tasks:
+    - name: Verify | Make a scratch directory
+      ansible.builtin.tempfile:
+        state: directory
+      register: slack_bot_deploy_verify_compose_scratch
+
+    - name: Verify | Render and resolve the compose file
+      block:
+        - name: Verify | Render the compose file with the role template
+          ansible.builtin.template:
+            src: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}/templates/docker-compose.yml.j2"
+            dest: "{{ slack_bot_deploy_verify_compose_scratch.path }}/docker-compose.yml"
+            mode: "0600"
+
+        - name: Verify | Resolve it with docker compose
+          ansible.builtin.command:
+            argv:
+              - env
+              - -u
+              - WORKER_COUNT
+              - docker
+              - compose
+              - -f
+              - "{{ slack_bot_deploy_verify_compose_scratch.path }}/docker-compose.yml"
+              - config
+              - --format
+              - json
+          changed_when: false
+          register: slack_bot_deploy_verify_resolved
+
+        - name: Verify | Read the services the role starts by default
+          ansible.builtin.include_vars:
+            file: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}/defaults/main.yml"
+            name: slack_bot_deploy_verify_defaults
+
+        - name: Verify | Assert the services, the image, the missing skills mount and the loopback ports
+          ansible.builtin.assert:
+            that:
+              - __services.keys() | sort | list == ['ngrok', 'receiver', 'redis', 'scheduler', 'worker']
+              - __services.keys() | sort | list == slack_bot_deploy_verify_defaults.slack_bot_deploy_services | sort | list
+              - __services.values() | selectattr('ports', 'defined') | map(attribute='ports') | flatten
+                | rejectattr('host_ip', 'equalto', '127.0.0.1') | list | length == 0
+              - __services.ngrok.image is not match('.*:latest$')
+              - __services.receiver.image == 'example/slack-bot:v0.0.0'
+              - __services.worker.image == 'example/slack-bot:v0.0.0'
+              - __services.scheduler.image == 'example/slack-bot:v0.0.0'
+              - __services.values() | selectattr('build', 'defined') | list | length == 0
+              - __services.worker.volumes is not defined or __services.worker.volumes | length == 0
+              - __services.worker.deploy.replicas | int == 2
+          vars:
+            __services: "{{ (slack_bot_deploy_verify_resolved.stdout | from_json).services }}"
+      always:
+        - name: Verify | Remove the scratch directory
+          ansible.builtin.file:
+            path: "{{ slack_bot_deploy_verify_compose_scratch.path }}"
+            state: absent

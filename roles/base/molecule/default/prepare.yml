@@ -1,0 +1,10 @@
+---
+# The pre-built images ship without apt package lists, so the first install of a package fails without this.
+- name: Prepare
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Prepare | Refresh the apt package lists
+      ansible.builtin.apt:
+        update_cache: true
+      changed_when: false

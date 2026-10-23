@@ -1,0 +1,10 @@
+---
+# restart reuses the containers as they are, so it needs no values either: no environment file is written.
+- name: Restart | Restart services without pulling
+  community.docker.docker_compose_v2:
+    project_src: "{{ slack_bot_deploy_dir }}"
+    files: "{{ __slack_bot_deploy_compose_files }}"
+    services: "{{ slack_bot_deploy_services }}"
+    state: restarted
+  become: true
+  when: not ansible_check_mode

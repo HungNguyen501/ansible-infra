@@ -5,6 +5,7 @@ description = "Ansible automation for ansible-infra"
 requires-python = ">=3.12"
 dependencies = [
     "ansible-core>=2.18",
+    "boto3", # aws_ssm connection plugin
 ]
 
 [dependency-groups]

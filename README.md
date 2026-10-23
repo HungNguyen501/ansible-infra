@@ -5,8 +5,8 @@ Ansible automation for ansible-infra
 ## Prerequisites
 
 - [uv](https://docs.astral.sh/uv/) and Python 3.12 or newer
-- Docker, for `make test` (Molecule)
-- SSH access to the hosts as the user in `group_vars/all/connection.yml`
+- Docker with the Compose v2 plugin (`docker compose version`), for `make test` (Molecule)
+- SSH access to the hosts as the user in `group_vars/all/connection.yml`; the `slack_bot` hosts use AWS SSM instead (see below)
 
 ## Setup
 
@@ -37,7 +37,7 @@ ansible-infra/
 | `make lint` | yamllint and ansible-lint (production profile) |
 | `make scan` | gitleaks secret scan of the history (needs Docker) |
 | `make syntax` | `ansible-playbook --syntax-check` for every environment |
-| `make test` | Molecule tests of every role (needs Docker) |
+| `make test` | Molecule tests of every role (needs Docker with Compose v2) |
 | `make check ENV=<env>` | Dry run with a diff, changes nothing |
 | `make deploy ENV=<env>` | Real run. Protected environments also need `CONFIRM=apply-<env>` |
 | `make vault-init ENV=<env>` | Create the encrypted `vault.yml` of an environment |
@@ -67,8 +67,26 @@ Create one GitHub environment per environment (`staging`, `production`) and add:
 | `ANSIBLE_VAULT_PASSWORD` | secret | Vault password of that environment |
 | `ANSIBLE_SSH_PRIVATE_KEY` | secret | Private key of the deploy user |
 | `ANSIBLE_SSH_KNOWN_HOSTS` | secret | `known_hosts` lines of the managed hosts (host key checking stays on) |
+| `AWS_ROLE_ARN` | variable | IAM role the workflows assume through GitHub OIDC to reach SSM hosts (the `slack_bot` group). Leave unset for an environment with no SSM hosts. |
+
+The role behind `AWS_ROLE_ARN` trusts the GitHub OIDC provider for this repository and environment. It needs `ssm:StartSession`, `ssm:TerminateSession` and `ssm:DescribeInstanceInformation` on the target instances, plus read, write and delete on the transfer bucket (`ansible_aws_ssm_bucket_name`).
 
 Protect the default branch: require a pull request, one review and the `Lint` and `Molecule` checks. With a plan that has no environment approvals, branch protection is the control that stops unreviewed changes.
+
+## Agentic Slack Bot
+
+The `slack_bot` group deploys the Agentic Slack Bot with the `slack_bot_deploy` role. Staging hosts are reached over AWS SSM, so run Ansible with AWS credentials and the [session-manager-plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) installed. The compose file is `roles/slack_bot_deploy/templates/docker-compose.yml.j2`, a copy of the application's with the pre-built image. The worker skills are part of the image.
+
+| Task | Command |
+|---|---|
+| Deploy | `make check ENV=staging LIMIT=slack_bot`, then `make deploy ENV=staging LIMIT=slack_bot` |
+| Restart without pulling | `make deploy ENV=staging PLAYBOOK=playbooks/slack_bot_restart.yml [SERVICE=worker]` |
+| Stop | `make deploy ENV=staging PLAYBOOK=playbooks/slack_bot_stop.yml` |
+| Deploy some services only | `make deploy ENV=staging IMAGE_TAG=<tag> SERVICE=worker` (comma-separated for several). The restart playbook takes the same `SERVICE` list. The compose file is rendered for all services, so the others pick up a new tag the next time they start. |
+| Which image runs | The tag is not stored in git. On the host: `cd /var/workspace/agentic-slack-bot && sudo docker compose images` (reach it with `aws ssm start-session`). |
+| Ship a new image | `make check ENV=staging IMAGE_TAG=<tag>`, then `make deploy ENV=staging IMAGE_TAG=<tag>`. In GitHub, fill the `image_tag` input of Ansible Check, then use the same tag in Ansible Apply. |
+
+See [roles/slack_bot_deploy/README.md](roles/slack_bot_deploy/README.md) for the variables.
 
 ## Secrets
 
