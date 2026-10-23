@@ -67,10 +67,10 @@
 
     - name: Verify | Stat the compose environment file
       ansible.builtin.stat:
-        path: /var/workspace/agentic-slack-bot/.env
+        path: /run/slack-bot-deploy/compose.env
       register: slack_bot_deploy_verify_env
 
     - name: Verify | Assert the compose environment file is removed
       ansible.builtin.assert:
         that: not slack_bot_deploy_verify_env.stat.exists
-        fail_msg: The .env file with secrets was left on the host
+        fail_msg: The environment file with secrets was left on the host

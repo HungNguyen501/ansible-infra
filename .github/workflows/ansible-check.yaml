@@ -64,6 +64,7 @@ jobs:
       - name: Set up AWS access for SSM
         uses: ./.github/actions/setup-aws-ssm
         with:
+          environment: ${{ inputs.environment }}
           role-arn: ${{ vars.AWS_ROLE_ARN }}
 
       - name: Check out the Agentic Slack Bot

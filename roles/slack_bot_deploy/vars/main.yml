@@ -10,7 +10,11 @@ __slack_bot_deploy_compose_file_args:
   - -f
   - docker-compose.prod.yml
 
-# Environment handed to docker compose for ${NAME} interpolation. It never lands in a file on the host.
+# Environment handed to docker compose for ${NAME} interpolation. The env_write.yml task puts it in the file below for the
+# length of one compose call. /run is tmpfs, so the secrets never reach the disk and a file left by a killed run is gone at reboot.
+__slack_bot_deploy_env_dir: /run/slack-bot-deploy
+__slack_bot_deploy_env_file: /run/slack-bot-deploy/compose.env
+
 __slack_bot_deploy_compose_env: >-
   {{ slack_bot_deploy_env
   | combine(slack_bot_deploy_secret_env, {'WORKER_COUNT': slack_bot_deploy_worker_count | string}) }}

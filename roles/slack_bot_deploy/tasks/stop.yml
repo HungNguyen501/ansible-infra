@@ -1,5 +1,6 @@
 ---
 - name: Stop | Stop services and remove orphan containers
+  when: not ansible_check_mode
   block:
     - name: Stop | Write the environment file
       ansible.builtin.import_tasks: env_write.yml
@@ -10,6 +11,8 @@
         files: "{{ __slack_bot_deploy_compose_files }}"
         state: absent
         remove_orphans: true
+        env_files:
+          - "{{ __slack_bot_deploy_env_file }}"
       become: true
   always:
     - name: Stop | Remove the environment file

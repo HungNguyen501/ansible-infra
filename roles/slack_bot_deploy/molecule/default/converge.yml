@@ -23,7 +23,7 @@
 
         - name: Converge | Stat the environment file
           ansible.builtin.stat:
-            path: /var/workspace/agentic-slack-bot/.env
+            path: /run/slack-bot-deploy/compose.env
           register: slack_bot_deploy_converge_env
 
         - name: Converge | Assert the environment file is private and holds the values
@@ -32,6 +32,16 @@
               - slack_bot_deploy_converge_env.stat.exists
               - slack_bot_deploy_converge_env.stat.mode == '0600'
               - slack_bot_deploy_converge_env.stat.pw_name == 'root'
+
+        - name: Converge | Read the environment file
+          ansible.builtin.slurp:
+            src: /run/slack-bot-deploy/compose.env
+          register: slack_bot_deploy_converge_env_content
+
+        - name: Converge | Assert the multi-line secret is written intact
+          ansible.builtin.assert:
+            that: "(slack_bot_deploy_converge_env_content.content | b64decode) is search(\"EXAMPLE_SECRET='line one\\nline two'\")"
+          no_log: true
       always:
         - name: Converge | Remove the compose environment file
           ansible.builtin.import_role:

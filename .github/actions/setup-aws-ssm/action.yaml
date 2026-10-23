@@ -2,27 +2,54 @@
 name: Set up AWS access for SSM
 description: Assume an AWS role through GitHub OIDC and install the Session Manager plugin, so Ansible can reach hosts over amazon.aws.aws_ssm.
 inputs:
+  environment:
+    description: Target environment. Its inventory tells whether it has SSM hosts and which region they are in.
+    required: true
   role-arn:
-    description: IAM role to assume. Leave empty to skip, for environments with no SSM hosts. The calling job needs permissions id-token write.
+    description: IAM role to assume. May be empty for an environment with no SSM hosts. The calling job needs permissions id-token write.
     required: false
     default: ""
   region:
-    description: AWS region of the SSM hosts.
+    description: Region used when the inventory of the environment sets none.
     required: false
     default: us-east-1
 runs:
   using: composite
   steps:
+    # One source of truth for the region: ansible_aws_ssm_region in the inventory. A missing role is an error only where SSM hosts exist.
+    - name: Resolve the SSM settings from the inventory
+      id: ssm
+      shell: bash
+      run: |
+        set -euo pipefail
+        [[ "${ENVIRONMENT}" =~ ^[a-z][a-z0-9]*$ ]] || { echo "error: invalid environment" >&2; exit 1; }
+        dir="inventories/${ENVIRONMENT}"
+        if grep -rqs "amazon.aws.aws_ssm" "${dir}"; then
+          if [ -z "${ROLE_ARN}" ]; then
+            echo "error: ${ENVIRONMENT} has SSM hosts, but the AWS_ROLE_ARN variable of the ${ENVIRONMENT} environment is not set" >&2
+            exit 1
+          fi
+          region="$(grep -rhE '^ansible_aws_ssm_region:' "${dir}" | head -n 1 | sed -E 's/^[^:]+:[[:space:]]*"?([a-z0-9-]+)"?[[:space:]]*$/\1/')"
+          echo "needed=true" >> "${GITHUB_OUTPUT}"
+          echo "region=${region:-${DEFAULT_REGION}}" >> "${GITHUB_OUTPUT}"
+        else
+          echo "No SSM hosts in ${ENVIRONMENT}: skipping the AWS setup."
+        fi
+      env:
+        ENVIRONMENT: ${{ inputs.environment }}
+        ROLE_ARN: ${{ inputs.role-arn }}
+        DEFAULT_REGION: ${{ inputs.region }}
+
     - name: Assume the AWS role
-      if: inputs.role-arn != ''
+      if: steps.ssm.outputs.needed == 'true'
       uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
       with:
         role-to-assume: ${{ inputs.role-arn }}
-        aws-region: ${{ inputs.region }}
+        aws-region: ${{ steps.ssm.outputs.region }}
 
     # Pinned by version and checked by hash: the plugin runs on the runner next to the AWS credentials.
     - name: Install the Session Manager plugin
-      if: inputs.role-arn != ''
+      if: steps.ssm.outputs.needed == 'true'
       shell: bash
       run: |
         set -euo pipefail

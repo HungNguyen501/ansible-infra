@@ -31,6 +31,8 @@
         recreate: auto
         wait: true
         wait_timeout: 120
+        env_files:
+          - "{{ __slack_bot_deploy_env_file }}"
       become: true
       no_log: true
       register: slack_bot_deploy_compose_result

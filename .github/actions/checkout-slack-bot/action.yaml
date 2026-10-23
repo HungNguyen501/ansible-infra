@@ -9,6 +9,10 @@ inputs:
     description: GitHub repository of the application.
     required: false
     default: HungNguyen501/agentic-slack-bot
+  token:
+    description: Token that can read the repository. The default github.token reaches this repository only. Pass a PAT or app token if the application repository turns private.
+    required: false
+    default: ${{ github.token }}
 runs:
   using: composite
   steps:
@@ -28,6 +32,7 @@ runs:
         tag="$(sed -nE 's/^slack_bot_deploy_image_tag:[[:space:]]*"?([^"[:space:]]+)"?[[:space:]]*$/\1/p' "${vars_file}")"
         [[ "${tag}" =~ ^v[0-9]{4}\.[0-9]{2}\.[0-9]{2}\.[0-9a-f]+$ ]] || { echo "error: cannot read slack_bot_deploy_image_tag from ${vars_file}" >&2; exit 1; }
         echo "ref=refs/tags/agentic-slack-bot-${tag}" >> "${GITHUB_OUTPUT}"
+        echo "sha=${tag##*.}" >> "${GITHUB_OUTPUT}"
       env:
         ENVIRONMENT: ${{ inputs.environment }}
 
@@ -38,7 +43,23 @@ runs:
         repository: ${{ inputs.repository }}
         ref: ${{ steps.revision.outputs.ref }}
         path: agentic-slack-bot
+        token: ${{ inputs.token }}
         persist-credentials: false
+
+    # The tag is mutable, but the image tag ends in the short commit id the image was built from. Refuse a tag that moved.
+    - name: Verify the checkout is the commit of the image tag
+      if: steps.revision.outputs.ref != ''
+      shell: bash
+      run: |
+        set -euo pipefail
+        head="$(git -C agentic-slack-bot rev-parse HEAD)"
+        case "${head}" in
+          "${EXPECTED_SHA}"*) echo "agentic-slack-bot checked out at ${head}" ;;
+          *) echo "error: tag ${REF} points at ${head}, not at a commit starting with ${EXPECTED_SHA}" >&2; exit 1 ;;
+        esac
+      env:
+        EXPECTED_SHA: ${{ steps.revision.outputs.sha }}
+        REF: ${{ steps.revision.outputs.ref }}
 
     - name: Point the role at the checkout
       if: steps.revision.outputs.ref != ''

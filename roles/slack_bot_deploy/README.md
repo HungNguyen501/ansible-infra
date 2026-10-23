@@ -19,7 +19,7 @@ The host needs Docker with the compose plugin (2.18 or newer) and Python 3.
 | `slack_bot_deploy_log_service` | `""` | Service for the `logs` entry point. Empty means all. |
 | `slack_bot_deploy_log_tail` | `50` | Log lines per container for the `logs` entry point. |
 
-The environment fills the `${NAME}` references of `docker-compose.yml` through a `.env` file in the deploy directory (owner root, mode `0600`). The role writes it just before each compose call and deletes it right after, even when the call fails, so secrets are on disk only while compose runs. A file upload is used, because passing the values as process environment makes the SSM session stall. If a run is killed mid-way the file can stay behind: `make deploy` with `PLAYBOOK=playbooks/slack_bot_stop.yml` or the next deploy replaces and removes it. Secret values must not contain a placeholder: a deploy stops while any value is `replace-me`.
+The environment fills the `${NAME}` references of `docker-compose.yml` through a file under `/run/slack-bot-deploy/` (owner root, mode `0600`). `/run` is tmpfs, so the secrets never reach the disk. The role writes the file just before each compose call and deletes it right after, even when the call fails. A file upload is used, because passing the values as process environment makes the SSM session stall. If a run is killed mid-way the file can stay behind until the next compose call removes it or the host reboots. Secret values must not contain a placeholder: a deploy stops while any value is `replace-me`.
 
 ## Entry points and tags
 

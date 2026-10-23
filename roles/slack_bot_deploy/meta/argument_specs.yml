@@ -9,7 +9,9 @@ argument_specs:
         description: Directory on the host that holds the compose files and the worker skills.
       slack_bot_deploy_src_dir:
         type: path
-        description: Local checkout of the agentic-slack-bot repository. Defaults to a sibling of this repository.
+        description: >-
+          Local checkout of the agentic-slack-bot repository. Defaults to the SLACK_BOT_SRC_DIR environment variable,
+          else to a sibling of this repository.
       slack_bot_deploy_image_repo:
         type: str
         required: true

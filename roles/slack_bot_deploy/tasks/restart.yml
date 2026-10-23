@@ -11,6 +11,8 @@
         files: "{{ __slack_bot_deploy_compose_files }}"
         services: "{{ slack_bot_deploy_services }}"
         state: restarted
+        env_files:
+          - "{{ __slack_bot_deploy_env_file }}"
       become: true
       no_log: true
   always:

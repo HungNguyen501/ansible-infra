@@ -1,20 +1,30 @@
 ---
-# docker compose reads the .env file of the project directory to fill the ${NAME} references of docker-compose.yml.
+# docker compose reads the environment file to fill the ${NAME} references of docker-compose.yml.
 # The values travel as a file upload. As process environment they would be typed into the SSM shell as one long command
-# line, and the session stalls on it. env_remove.yml deletes the file again, so callers wrap their compose task in a
-# block with env_remove.yml under always.
-- name: Env | Assert the names and values fit a single-quoted .env line
+# line, and the session stalls on it. The file lives on tmpfs (see vars/main.yml). env_remove.yml deletes it again, so
+# callers wrap their compose task in a block with env_remove.yml under always.
+- name: Env | Assert the names and values fit a single-quoted dotenv line
   ansible.builtin.assert:
     that:
       - __slack_bot_deploy_compose_env.keys() | reject('match', '^[A-Za-z_][A-Za-z0-9_]*$') | list | length == 0
-      - __slack_bot_deploy_compose_env.values() | select('search', "'") | list | length == 0
-    fail_msg: An environment name is not a valid identifier, or a value contains a single quote.
+      - __slack_bot_deploy_compose_env.values() | map('string') | select('search', "[']") | list | length == 0
+      - __slack_bot_deploy_compose_env.values() | map('string') | select('search', "\r") | list | length == 0
+    fail_msg: An environment name is not a valid identifier, or a value contains a single quote or a carriage return.
   no_log: true
+
+- name: Env | Create the private tmpfs directory
+  ansible.builtin.file:
+    path: "{{ __slack_bot_deploy_env_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  become: true
 
 - name: Env | Write the compose environment file
   ansible.builtin.template:
     src: env.j2
-    dest: "{{ slack_bot_deploy_dir }}/.env"
+    dest: "{{ __slack_bot_deploy_env_file }}"
     owner: root
     group: root
     mode: "0600"
