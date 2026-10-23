@@ -1,0 +1,24 @@
+---
+# Tests the file staging and the skills sync. docker compose itself needs a Docker daemon inside the instance, so lint and --check cover that part.
+# The images publish only a moving `latest` tag, so they are pinned by digest. Bump the digests on a schedule to pick up security fixes.
+driver:
+  name: docker
+platforms:
+  - name: ubuntu2404
+    image: geerlingguy/docker-ubuntu2404-ansible:latest@sha256:bbf48c50bf652d059118ba025663055ca64f550adaa13405021f418d52a52a84
+    pre_build_image: true
+    privileged: true
+    command: ""
+  - name: debian12
+    image: geerlingguy/docker-debian12-ansible:latest@sha256:43b3f59882ccc0ba5deb3b3ecac727084bb082a3230b5258c500395694b5497f
+    pre_build_image: true
+    privileged: true
+    command: ""
+provisioner:
+  name: ansible
+  inventory:
+    group_vars:
+      all:
+        slack_bot_deploy_src_dir: "{{ lookup('ansible.builtin.env', 'MOLECULE_SCENARIO_DIRECTORY') }}/fixtures"
+        slack_bot_deploy_image_repo: example/slack-bot
+        slack_bot_deploy_image_tag: v0.0.0

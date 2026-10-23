@@ -1,0 +1,64 @@
+---
+argument_specs:
+  main:
+    short_description: Deploy the Agentic Slack Bot with docker compose
+    options:
+      slack_bot_deploy_dir:
+        type: path
+        default: /var/workspace/agentic-slack-bot
+        description: Directory on the host that holds the compose files and the worker skills.
+      slack_bot_deploy_src_dir:
+        type: path
+        description: Local checkout of the agentic-slack-bot repository. Defaults to a sibling of this repository.
+      slack_bot_deploy_image_repo:
+        type: str
+        required: true
+        description: Docker Hub repository of the pre-built image.
+      slack_bot_deploy_image_tag:
+        type: str
+        required: true
+        description: Image tag to deploy. Pin a version, do not use latest.
+      slack_bot_deploy_services:
+        type: list
+        elements: str
+        default:
+          - redis
+          - receiver
+          - worker
+          - scheduler
+          - ngrok
+        description: Compose services started by a deploy and restarted by the restart tag.
+      slack_bot_deploy_worker_count:
+        type: int
+        default: 2
+        description: Number of worker containers.
+      slack_bot_deploy_env:
+        type: dict
+        default: {}
+        description: Non-secret environment of the compose project.
+      slack_bot_deploy_secret_env:
+        type: dict
+        required: true
+        description: Secret environment of the compose project. Alias vault_* variables here.
+  stop:
+    short_description: Stop the Agentic Slack Bot and remove orphan containers
+    options:
+      slack_bot_deploy_dir:
+        type: path
+        default: /var/workspace/agentic-slack-bot
+        description: Directory on the host that holds the compose files.
+  logs:
+    short_description: Print recent logs of the Agentic Slack Bot
+    options:
+      slack_bot_deploy_dir:
+        type: path
+        default: /var/workspace/agentic-slack-bot
+        description: Directory on the host that holds the compose files.
+      slack_bot_deploy_log_service:
+        type: str
+        default: ""
+        description: Service to fetch logs for. Empty means every service.
+      slack_bot_deploy_log_tail:
+        type: int
+        default: 50
+        description: Number of log lines per container.

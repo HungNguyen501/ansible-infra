@@ -1,0 +1,27 @@
+---
+- name: Stage | Ensure deploy directory exists
+  ansible.builtin.file:
+    path: "{{ slack_bot_deploy_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  become: true
+
+- name: Stage | Copy docker-compose.yml
+  ansible.builtin.copy:
+    src: "{{ slack_bot_deploy_src_dir }}/docker-compose.yml"
+    dest: "{{ slack_bot_deploy_dir }}/docker-compose.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
+
+- name: Stage | Render docker-compose.prod.yml with the image tag
+  ansible.builtin.template:
+    src: docker-compose.prod.yml.j2
+    dest: "{{ slack_bot_deploy_dir }}/docker-compose.prod.yml"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true

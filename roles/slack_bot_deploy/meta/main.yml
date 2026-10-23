@@ -1,0 +1,17 @@
+---
+galaxy_info:
+  author: ansible-infra maintainers
+  description: Deploy the Agentic Slack Bot to a host with docker compose.
+  license: Apache-2.0
+  min_ansible_version: "2.18"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - noble
+    - name: Debian
+      versions:
+        - bookworm
+  galaxy_tags:
+    - slack
+    - docker
+dependencies: []

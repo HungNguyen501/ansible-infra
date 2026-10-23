@@ -1,0 +1,29 @@
+---
+# Directory on the host that holds the compose files and the worker skills.
+slack_bot_deploy_dir: /var/workspace/agentic-slack-bot
+
+# Local checkout of the agentic-slack-bot repository. Its docker-compose.yml and src/worker/skills/ are copied to the host.
+slack_bot_deploy_src_dir: "{{ playbook_dir }}/../../agentic-slack-bot"
+
+# Compose services started by a deploy and restarted by the restart tag.
+slack_bot_deploy_services:
+  - redis
+  - receiver
+  - worker
+  - scheduler
+  - ngrok
+
+# Number of worker containers (WORKER_COUNT in docker-compose.yml).
+slack_bot_deploy_worker_count: 2
+
+# Non-secret environment of the compose project, as NAME: value. Used to fill the ${NAME} references in docker-compose.yml.
+slack_bot_deploy_env: {}
+
+# Secret environment of the compose project, as NAME: value. Alias vault_* variables here, never write a secret in plain text.
+slack_bot_deploy_secret_env: {}
+
+# Service to fetch logs for. Empty means every service. Used by the logs entry point.
+slack_bot_deploy_log_service: ""
+
+# Number of log lines per container. Used by the logs entry point.
+slack_bot_deploy_log_tail: 50

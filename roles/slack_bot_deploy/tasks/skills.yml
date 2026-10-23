@@ -1,0 +1,10 @@
+---
+- name: Skills | Copy the worker skills directory
+  ansible.builtin.copy:
+    src: "{{ slack_bot_deploy_src_dir }}/src/worker/skills/"
+    dest: "{{ slack_bot_deploy_dir }}/src/worker/skills/"
+    owner: root
+    group: root
+    mode: "0644"
+    directory_mode: "0755"
+  become: true

@@ -1,0 +1,18 @@
+---
+# Read-only, so it also runs under --check.
+- name: Logs | Fetch recent logs
+  ansible.builtin.command:
+    argv: >-
+      {{ ['docker', 'compose'] + __slack_bot_deploy_compose_file_args
+      + ['logs', '--tail', slack_bot_deploy_log_tail | string]
+      + ([slack_bot_deploy_log_service] if slack_bot_deploy_log_service else []) }}
+    chdir: "{{ slack_bot_deploy_dir }}"
+  become: true
+  check_mode: false
+  changed_when: false
+  register: slack_bot_deploy_logs_result
+
+# The logs are the point of this entry point, so the output has no verbosity gate.
+- name: Logs | Print logs
+  ansible.builtin.debug:
+    msg: "{{ slack_bot_deploy_logs_result.stdout_lines }}"

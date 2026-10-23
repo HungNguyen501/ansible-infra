@@ -1,0 +1,13 @@
+---
+- name: Converge
+  hosts: all
+  tasks:
+    - name: Converge | Stage the compose files
+      ansible.builtin.import_role:
+        name: slack_bot_deploy
+        tasks_from: stage.yml
+
+    - name: Converge | Sync the worker skills
+      ansible.builtin.import_role:
+        name: slack_bot_deploy
+        tasks_from: skills.yml

@@ -1,0 +1,31 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Verify | Read the compose override
+      ansible.builtin.slurp:
+        src: /var/workspace/agentic-slack-bot/docker-compose.prod.yml
+      register: slack_bot_deploy_verify_override
+
+    - name: Verify | Assert the override holds the image tag
+      ansible.builtin.assert:
+        that:
+          - "'image: example/slack-bot:v0.0.0' in (slack_bot_deploy_verify_override.content | b64decode)"
+        fail_msg: docker-compose.prod.yml does not hold the image of the role variables
+
+    - name: Verify | Stat the staged files
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      loop:
+        - /var/workspace/agentic-slack-bot/docker-compose.yml
+        - /var/workspace/agentic-slack-bot/src/worker/skills/example.md
+      register: slack_bot_deploy_verify_files
+
+    - name: Verify | Assert the files are in place
+      ansible.builtin.assert:
+        that: item.stat.exists
+        fail_msg: "{{ item.item }} is missing"
+      loop: "{{ slack_bot_deploy_verify_files.results }}"
+      loop_control:
+        label: "{{ item.item }}"

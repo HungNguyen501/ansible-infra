@@ -1,0 +1,8 @@
+---
+- name: Stop | Stop services and remove orphan containers
+  community.docker.docker_compose_v2:
+    project_src: "{{ slack_bot_deploy_dir }}"
+    files: "{{ __slack_bot_deploy_compose_files }}"
+    state: absent
+    remove_orphans: true
+  become: true

@@ -6,7 +6,7 @@ Ansible automation for ansible-infra
 
 - [uv](https://docs.astral.sh/uv/) and Python 3.12 or newer
 - Docker, for `make test` (Molecule)
-- SSH access to the hosts as the user in `group_vars/all/connection.yml`
+- SSH access to the hosts as the user in `group_vars/all/connection.yml`; the `slack_bot` hosts use AWS SSM instead (see below)
 
 ## Setup
 
@@ -69,6 +69,21 @@ Create one GitHub environment per environment (`staging`, `production`) and add:
 | `ANSIBLE_SSH_KNOWN_HOSTS` | secret | `known_hosts` lines of the managed hosts (host key checking stays on) |
 
 Protect the default branch: require a pull request, one review and the `Lint` and `Molecule` checks. With a plan that has no environment approvals, branch protection is the control that stops unreviewed changes.
+
+## Agentic Slack Bot
+
+The `slack_bot` group deploys the Agentic Slack Bot with the `slack_bot_deploy` role. Staging hosts are reached over AWS SSM, so run Ansible with AWS credentials and the [session-manager-plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) installed. The compose file and skills come from a checkout of `agentic-slack-bot` next to this repository, or from `-e slack_bot_deploy_src_dir=<path>`.
+
+| Task | Command |
+|---|---|
+| Deploy | `make check ENV=staging LIMIT=slack_bot`, then `make deploy ENV=staging LIMIT=slack_bot` |
+| Copy skills only | `make deploy ENV=staging TAGS=skills` |
+| Restart without pulling | `make deploy ENV=staging TAGS=restart` |
+| Stop | `make deploy ENV=staging PLAYBOOK=playbooks/slack_bot_stop.yml` |
+| Logs | `make check ENV=staging PLAYBOOK=playbooks/slack_bot_logs.yml` |
+| Ship a new image | Change `slack_bot_deploy_image_tag` in `inventories/staging/group_vars/slack_bot/vars.yml`, then check and deploy |
+
+See [roles/slack_bot_deploy/README.md](roles/slack_bot_deploy/README.md) for the variables.
 
 ## Secrets
 

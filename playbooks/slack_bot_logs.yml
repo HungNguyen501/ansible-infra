@@ -1,0 +1,14 @@
+---
+# Operation playbook, not imported by site.yml: it only reads. Run it with make check, which changes nothing.
+# Run: make check ENV=<env> PLAYBOOK=playbooks/slack_bot_logs.yml
+# Scope it with a one-off extra var: uv run ansible-playbook -i inventories/<env> playbooks/slack_bot_logs.yml -e slack_bot_deploy_log_service=worker
+- name: Fetch Agentic Slack Bot logs
+  hosts: slack_bot
+  gather_facts: false
+  tasks:
+    - name: Fetch logs with the slack_bot_deploy role
+      ansible.builtin.import_role:
+        name: slack_bot_deploy
+        tasks_from: logs.yml
+      tags:
+        - slack_bot_deploy

@@ -1,0 +1,9 @@
+---
+# Minimal stand-in for the compose file of agentic-slack-bot.
+services:
+  receiver:
+    build: .
+  worker:
+    build: .
+  scheduler:
+    build: .

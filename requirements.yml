@@ -5,3 +5,4 @@ collections:
   - name: ansible.posix
   - name: community.general
   - name: community.docker
+  - name: amazon.aws # aws_ssm connection of the slack_bot hosts
