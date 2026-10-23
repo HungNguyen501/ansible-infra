@@ -1,0 +1,37 @@
+---
+# One case of the preflight test in verify.yml. case_file is created under src/worker/skills of the scratch repository,
+# case_expect_task is the task that must refuse it, or empty when the preflight must pass.
+- name: Case | Create the file under test
+  ansible.builtin.copy:
+    content: from the case
+    dest: "{{ slack_bot_deploy_verify_repo }}/src/worker/skills/{{ case_file }}"
+    mode: "0644"
+  when: case_file != ''
+
+- name: Case | Run the preflight
+  block:
+    - name: Case | Run preflight.yml of the role
+      ansible.builtin.include_role:
+        name: slack_bot_deploy
+        tasks_from: preflight.yml
+      vars:
+        slack_bot_deploy_src_dir: "{{ slack_bot_deploy_verify_repo }}"
+        slack_bot_deploy_image_tag: "{{ slack_bot_deploy_verify_tag }}"
+
+    - name: Case | Fail when the preflight accepted a case it must refuse
+      ansible.builtin.fail:
+        msg: "The preflight accepted {{ case_file }}"
+      when: case_expect_task != ''
+  rescue:
+    - name: Case | Assert the expected check refused it
+      ansible.builtin.assert:
+        that:
+          - case_expect_task != ''
+          - ansible_failed_task.name == case_expect_task
+        fail_msg: "Unexpected result for {{ case_file | default('the clean checkout') }}: {{ ansible_failed_task.name }}"
+
+- name: Case | Remove the file under test
+  ansible.builtin.file:
+    path: "{{ slack_bot_deploy_verify_repo }}/src/worker/skills/{{ case_file }}"
+    state: absent
+  when: case_file != ''

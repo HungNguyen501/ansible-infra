@@ -139,6 +139,18 @@
         - name: Verify | Resolve the compose file
           ansible.builtin.command:
             argv:
+              # Compose lets exported variables win over --env-file. Unset the probes, so the file alone decides.
+              - env
+              - -u
+              - PLAIN
+              - -u
+              - MULTILINE
+              - -u
+              - DOLLAR
+              - -u
+              - BACKSLASH
+              - -u
+              - WORKER_COUNT
               - docker
               - compose
               - --env-file
@@ -164,6 +176,71 @@
           vars:
             __probe: "{{ (slack_bot_deploy_verify_config.stdout | from_json).services.probe }}"
           no_log: true
+      always:
+        - name: Verify | Remove the scratch directory
+          ansible.builtin.file:
+            path: "{{ slack_bot_deploy_verify_scratch.path }}"
+            state: absent
+
+# preflight.yml reads git, and the test fixtures are not a repository, so it gets a scratch one. Untracked and ignored
+# files are in the working tree that copy sends to the workers, so each of them must stop the deploy.
+- name: Verify the preflight of the source checkout
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Verify | Make a scratch directory
+      ansible.builtin.tempfile:
+        state: directory
+      register: slack_bot_deploy_verify_scratch
+
+    - name: Verify | Build a repository with a tagged commit
+      block:
+        - name: Verify | Create the skills directory
+          ansible.builtin.file:
+            path: "{{ slack_bot_deploy_verify_scratch.path }}/src/worker/skills"
+            state: directory
+            mode: "0755"
+
+        - name: Verify | Write the tracked files
+          ansible.builtin.copy:
+            dest: "{{ slack_bot_deploy_verify_scratch.path }}/{{ item.path }}"
+            content: "{{ item.content }}"
+            mode: "0644"
+          loop:
+            - {path: docker-compose.yml, content: "services: {}\n"}
+            - {path: src/worker/skills/tracked.md, content: "tracked\n"}
+            - {path: .gitignore, content: "src/worker/skills/ignored.md\n"}
+
+        - name: Verify | Commit them
+          ansible.builtin.command:
+            argv: "{{ item }}"
+            chdir: "{{ slack_bot_deploy_verify_scratch.path }}"
+          loop:
+            - [git, init, -q, .]
+            - [git, add, -A]
+            - [git, -c, user.name=t, -c, user.email=t@t, commit, -q, -m, base]
+          changed_when: true
+
+        - name: Verify | Read the commit
+          ansible.builtin.command:
+            argv: [git, rev-parse, --short=7, HEAD]
+            chdir: "{{ slack_bot_deploy_verify_scratch.path }}"
+          changed_when: false
+          register: slack_bot_deploy_verify_short
+
+        - name: Verify | Run the cases
+          ansible.builtin.include_tasks: tasks/preflight_case.yml
+          loop:
+            - {file: "", expect: ""}
+            - {file: untracked.md, expect: "Preflight | Assert the compose file and skills have no local edits"}
+            - {file: ignored.md, expect: "Preflight | Assert the compose file and skills have no local edits"}
+          loop_control:
+            loop_var: case
+          vars:
+            slack_bot_deploy_verify_repo: "{{ slack_bot_deploy_verify_scratch.path }}"
+            slack_bot_deploy_verify_tag: "v2026.01.01.{{ slack_bot_deploy_verify_short.stdout }}"
+            case_file: "{{ case.file }}"
+            case_expect_task: "{{ case.expect }}"
       always:
         - name: Verify | Remove the scratch directory
           ansible.builtin.file:

@@ -70,7 +70,7 @@ runs:
       run: |
         set -euo pipefail
         deb="${RUNNER_TEMP}/session-manager-plugin.deb"
-        curl -fsSL -o "${deb}" "https://s3.amazonaws.com/session-manager-downloads/plugin/${PLUGIN_VERSION}/ubuntu_64bit/session-manager-plugin.deb"
+        curl -fsSL --connect-timeout 10 --max-time 120 --retry 3 --retry-max-time 300 -o "${deb}" "https://s3.amazonaws.com/session-manager-downloads/plugin/${PLUGIN_VERSION}/ubuntu_64bit/session-manager-plugin.deb"
         echo "${PLUGIN_SHA256}  ${deb}" | sha256sum --check --strict -
         sudo dpkg -i "${deb}"
         session-manager-plugin --version

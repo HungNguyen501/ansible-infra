@@ -13,9 +13,20 @@
   changed_when: false
   register: slack_bot_deploy_preflight_head
 
+# Untracked and ignored files count: copy sends the whole skills directory of the working tree, not only what git tracks.
 - name: Preflight | List the compose file and skills that differ from that commit
   ansible.builtin.command:
-    argv: [git, -C, "{{ slack_bot_deploy_src_dir }}", status, --porcelain, --, docker-compose.yml, src/worker/skills]
+    argv:
+      - git
+      - -C
+      - "{{ slack_bot_deploy_src_dir }}"
+      - status
+      - --porcelain
+      - --ignored=matching
+      - --untracked-files=all
+      - --
+      - docker-compose.yml
+      - src/worker/skills
   delegate_to: localhost
   become: false
   run_once: true
