@@ -1,0 +1,25 @@
+[project]
+name = "ansible-infra"
+version = "0.1.0"
+description = "Ansible automation for ansible-infra"
+requires-python = ">=3.12"
+dependencies = [
+    "ansible-core>=2.18",
+]
+
+[dependency-groups]
+dev = [
+    "ansible-lint",
+    "yamllint",
+    "pre-commit",
+]
+test = [
+    "molecule",
+    "molecule-plugins[docker]",
+]
+
+[tool.uv]
+# Playbook repo, not a package: nothing is built or installed.
+package = false
+# Refuse packages released in the last week, a cheap guard against freshly published malicious versions.
+exclude-newer = "7 days"

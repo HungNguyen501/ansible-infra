@@ -1,0 +1,5 @@
+---
+# Placeholder shape of the encrypted vault.yml of the production environment.
+# Create the real file with: make vault-init ENV=production, then fill it with: make vault-edit ENV=production
+# Never commit a plaintext vault.yml: the pre-commit hook and CI reject it.
+vault_example_secret: replace-me

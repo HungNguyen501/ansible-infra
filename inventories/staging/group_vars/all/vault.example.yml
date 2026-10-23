@@ -1,0 +1,5 @@
+---
+# Placeholder shape of the encrypted vault.yml of the staging environment.
+# Create the real file with: make vault-init ENV=staging, then fill it with: make vault-edit ENV=staging
+# Never commit a plaintext vault.yml: the pre-commit hook and CI reject it.
+vault_example_secret: replace-me

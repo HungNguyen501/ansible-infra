@@ -1,0 +1,19 @@
+{
+  "skills": [
+    "ansible-code-style",
+    "ansible-inventory-vars",
+    "ansible-roles-playbooks",
+    "ansible-safe-deploys",
+    "ansible-testing",
+    "ansible-vault-secrets"
+  ],
+  "revisions": {
+    "ansible-code-style": "d3283525566feb9f9e01f6f41fa371e2cf66af33",
+    "ansible-inventory-vars": "d3283525566feb9f9e01f6f41fa371e2cf66af33",
+    "ansible-roles-playbooks": "d3283525566feb9f9e01f6f41fa371e2cf66af33",
+    "ansible-safe-deploys": "d3283525566feb9f9e01f6f41fa371e2cf66af33",
+    "ansible-testing": "d3283525566feb9f9e01f6f41fa371e2cf66af33",
+    "ansible-vault-secrets": "d3283525566feb9f9e01f6f41fa371e2cf66af33"
+  },
+  "hub_revision": "d3283525566feb9f9e01f6f41fa371e2cf66af33"
+}
