@@ -1,6 +1,8 @@
 ---
-- name: Env | Remove the compose environment file
+# Skipped when env_write.yml failed before it picked a directory, so the original error is not hidden by this one.
+- name: Env | Remove the compose environment directory
   ansible.builtin.file:
     path: "{{ __slack_bot_deploy_env_dir }}"
     state: absent
   become: true
+  when: __slack_bot_deploy_env_dir is defined

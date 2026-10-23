@@ -1,16 +1,61 @@
 ---
 # docker compose reads the environment file to fill the ${NAME} references of docker-compose.yml.
 # The values travel as a file upload. As process environment they would be typed into the SSM shell as one long command
-# line, and the session stalls on it. The file lives on tmpfs (see vars/main.yml). env_remove.yml deletes it again, so
-# callers wrap their compose task in a block with env_remove.yml under always.
-- name: Env | Assert the names and values fit a single-quoted dotenv line
-  ansible.builtin.assert:
-    that:
-      - __slack_bot_deploy_compose_env.keys() | reject('match', '^[A-Za-z_][A-Za-z0-9_]*$') | list | length == 0
-      - __slack_bot_deploy_compose_env.values() | map('string') | select('search', "[']") | list | length == 0
-      - __slack_bot_deploy_compose_env.values() | map('string') | select('search', "\r") | list | length == 0
-    fail_msg: An environment name is not a valid identifier, or a value contains a single quote or a carriage return.
+# line, and the session stalls on it. The file lives on tmpfs, in a directory of its own per call, so overlapping runs
+# (a manual logs run during a deploy) cannot overwrite or delete each other's file. env_remove.yml deletes the directory
+# again, so callers wrap their compose task in a block with env_remove.yml under always.
+- name: Env | Pick a private directory for this call
+  ansible.builtin.set_fact:
+    __slack_bot_deploy_env_dir: >-
+      {{ __slack_bot_deploy_env_dir_prefix ~
+      lookup('ansible.builtin.password', '/dev/null', chars=['ascii_lowercase', 'digits'], length=12) }}
+
+# A second task, so the file path uses the directory the first one picked and not a new random name.
+- name: Env | Derive the file path from the directory
+  ansible.builtin.set_fact:
+    __slack_bot_deploy_env_file: "{{ __slack_bot_deploy_env_dir }}/compose.env"
+
+# Only names are collected, never values. A single quote ends a dotenv value early. A trailing backslash escapes the
+# closing quote, so compose swallows the next line. A carriage return would be kept literally.
+- name: Env | Find names and values that do not fit a single-quoted dotenv line
+  ansible.builtin.set_fact:
+    __slack_bot_deploy_env_bad_names: >-
+      {%- set ns = namespace(bad=[]) -%}
+      {%- for name, value in __slack_bot_deploy_compose_env.items() -%}
+      {%- set text = value | string -%}
+      {%- if not (name is match('^[A-Za-z_][A-Za-z0-9_]*$'))
+          or "'" in text or text.endswith('\\') or '\r' in text -%}
+      {%- set ns.bad = ns.bad + [name] -%}
+      {%- endif -%}
+      {%- endfor -%}
+      {{ ns.bad | to_json }}
   no_log: true
+
+- name: Env | Assert every name and value fits
+  ansible.builtin.assert:
+    that: (__slack_bot_deploy_env_bad_names | from_json) | length == 0
+    fail_msg: >-
+      Not usable in the environment file (invalid name, single quote, trailing backslash or carriage return):
+      {{ (__slack_bot_deploy_env_bad_names | from_json) | join(', ') }}
+
+# A killed run leaves its directory behind until the next reboot. Sweep the ones too old to belong to a running call.
+- name: Env | Find directories left by earlier killed runs
+  ansible.builtin.find:
+    paths: /run
+    patterns: "{{ __slack_bot_deploy_env_dir_prefix | basename }}*"
+    file_type: directory
+    age: 1h
+  become: true
+  register: slack_bot_deploy_env_leftovers
+
+- name: Env | Remove the leftovers
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ slack_bot_deploy_env_leftovers.files }}"
+  loop_control:
+    label: "{{ item.path }}"
+  become: true
 
 - name: Env | Create the private tmpfs directory
   ansible.builtin.file:

@@ -23,7 +23,7 @@
 
         - name: Converge | Stat the environment file
           ansible.builtin.stat:
-            path: /run/slack-bot-deploy/compose.env
+            path: "{{ __slack_bot_deploy_env_file }}"
           register: slack_bot_deploy_converge_env
 
         - name: Converge | Assert the environment file is private and holds the values
@@ -35,7 +35,7 @@
 
         - name: Converge | Read the environment file
           ansible.builtin.slurp:
-            src: /run/slack-bot-deploy/compose.env
+            src: "{{ __slack_bot_deploy_env_file }}"
           register: slack_bot_deploy_converge_env_content
 
         - name: Converge | Assert the multi-line secret is written intact

@@ -1,21 +1,19 @@
 ---
-- name: Skills | Copy the worker skills directory
-  ansible.builtin.copy:
-    src: "{{ slack_bot_deploy_src_dir }}/src/worker/skills/"
-    dest: "{{ slack_bot_deploy_dir }}/src/worker/skills/"
-    owner: root
-    group: root
-    mode: "0644"
-    directory_mode: "0755"
-  become: true
+# ansible.posix.synchronize cannot mirror a directory here: it needs rsync over SSH, and the hosts are reached through SSM.
+# So the role compares the deployed tree with the source before it copies:
+#   - an entry the source no longer has is removed, or it would stay live for the workers
+#   - an entry that is a file in one tree and a directory in the other is removed, or copy fails or writes into it
+- name: Skills | Read the tree of the source checkout
+  ansible.builtin.set_fact:
+    __slack_bot_deploy_skills_tree: >-
+      {{ query('community.general.filetree', slack_bot_deploy_src_dir ~ '/src/worker/skills/')
+      | selectattr('state', 'in', ['file', 'directory']) | list }}
 
-# copy never deletes, so a skill removed or renamed in the source would stay live for the workers.
-# ansible.posix.synchronize cannot do this: it needs rsync over SSH, and the hosts are reached through SSM.
-- name: Skills | List the skills of the source checkout
+- name: Skills | List the source entries as <type>:<relative path>
   ansible.builtin.set_fact:
     __slack_bot_deploy_skills_keep: >-
-      {{ query('community.general.filetree', slack_bot_deploy_src_dir ~ '/src/worker/skills/')
-      | map(attribute='path') | list }}
+      {{ (__slack_bot_deploy_skills_tree | map(attribute='state') | list)
+      | zip(__slack_bot_deploy_skills_tree | map(attribute='path') | list) | map('join', ':') | list }}
 
 # An empty source means a broken checkout (uninitialised submodule, sparse checkout), not a request to delete every skill.
 - name: Skills | Assert the source holds skills
@@ -32,18 +30,31 @@
   become: true
   register: slack_bot_deploy_skills_found
 
-- name: Skills | List the skills that are gone from the source
+# Entries are compared as <type>:<relative path>, so a path whose type changed is as stale as one that is gone.
+- name: Skills | List the deployed skills that the source does not have as they are
   ansible.builtin.set_fact:
     __slack_bot_deploy_skills_stale: >-
-      {{ slack_bot_deploy_skills_found.files | map(attribute='path')
-      | map('relpath', slack_bot_deploy_dir ~ '/src/worker/skills')
-      | reject('in', __slack_bot_deploy_skills_keep) | list }}
+      {{ (slack_bot_deploy_skills_found.files | map(attribute='isdir') | map('ternary', 'directory', 'file') | list)
+      | zip(slack_bot_deploy_skills_found.files | map(attribute='path')
+      | map('relpath', slack_bot_deploy_dir ~ '/src/worker/skills') | list)
+      | map('join', ':') | list | difference(__slack_bot_deploy_skills_keep)
+      | map('regex_replace', '^(file|directory):', '') | list }}
 
 # Only the topmost stale entry of each tree is removed: deleting a directory takes its children with it.
-- name: Skills | Remove the skills that are gone from the source
+- name: Skills | Remove the stale skills
   ansible.builtin.file:
     path: "{{ slack_bot_deploy_dir }}/src/worker/skills/{{ item }}"
     state: absent
   loop: "{{ __slack_bot_deploy_skills_stale }}"
   when: (item | dirname) not in __slack_bot_deploy_skills_stale
+  become: true
+
+- name: Skills | Copy the worker skills directory
+  ansible.builtin.copy:
+    src: "{{ slack_bot_deploy_src_dir }}/src/worker/skills/"
+    dest: "{{ slack_bot_deploy_dir }}/src/worker/skills/"
+    owner: root
+    group: root
+    mode: "0644"
+    directory_mode: "0755"
   become: true

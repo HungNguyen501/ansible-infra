@@ -24,12 +24,14 @@ runs:
         set -euo pipefail
         [[ "${ENVIRONMENT}" =~ ^[a-z][a-z0-9]*$ ]] || { echo "error: invalid environment" >&2; exit 1; }
         dir="inventories/${ENVIRONMENT}"
-        if grep -rqs "amazon.aws.aws_ssm" "${dir}"; then
+        if grep -rqsE '^ansible_connection:[[:space:]]*amazon\.aws\.aws_ssm' "${dir}"; then
           if [ -z "${ROLE_ARN}" ]; then
             echo "error: ${ENVIRONMENT} has SSM hosts, but the AWS_ROLE_ARN variable of the ${ENVIRONMENT} environment is not set" >&2
             exit 1
           fi
-          region="$(grep -rhE '^ansible_aws_ssm_region:' "${dir}" | head -n 1 | sed -E 's/^[^:]+:[[:space:]]*"?([a-z0-9-]+)"?[[:space:]]*$/\1/')"
+          # grep exits 1 when no file sets a region: that is the fallback case. Any other status is a real read error.
+          region="$({ grep -rhE '^ansible_aws_ssm_region:' "${dir}" || [ "$?" -eq 1 ]; } \
+            | head -n 1 | sed -E 's/^[^:]+:[[:space:]]*"?([a-z0-9-]+)"?[[:space:]]*$/\1/')"
           echo "needed=true" >> "${GITHUB_OUTPUT}"
           echo "region=${region:-${DEFAULT_REGION}}" >> "${GITHUB_OUTPUT}"
         else

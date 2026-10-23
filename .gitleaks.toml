@@ -3,6 +3,11 @@
 useDefault = true
 
 [[allowlists]]
-# Skill name -> git commit SHA of the installed skill revision. The 40 hex characters match generic-api-key but are public revision ids.
-description = "agent-skills hub manifest"
+# Skill name -> git commit SHA of the installed skill revision. A 40-hex value matches generic-api-key but is a public revision id.
+# Both conditions must hold, so any other secret added to this file is still reported.
+description = "agent-skills hub manifest: revision ids only"
+condition = "AND"
+targetRules = ["generic-api-key"]
 paths = ['''^\.claude/skills/\.hub-skills\.json$''']
+regexTarget = "secret"
+regexes = ['''^[a-f0-9]{40}$''']

@@ -65,12 +65,31 @@
       loop_control:
         label: "{{ item.item }}"
 
-    - name: Verify | Stat the compose environment file
-      ansible.builtin.stat:
-        path: /run/slack-bot-deploy/compose.env
+    - name: Verify | Find environment directories on the host
+      ansible.builtin.find:
+        paths: /run
+        patterns: "slack-bot-deploy-*"
+        file_type: directory
       register: slack_bot_deploy_verify_env
 
-    - name: Verify | Assert the compose environment file is removed
+    - name: Verify | Assert no environment directory is left, not even the one of a killed run
       ansible.builtin.assert:
-        that: not slack_bot_deploy_verify_env.stat.exists
-        fail_msg: The environment file with secrets was left on the host
+        that: slack_bot_deploy_verify_env.matched == 0
+        fail_msg: "An environment directory with secrets was left on the host: {{ slack_bot_deploy_verify_env.files | map(attribute='path') | list }}"
+
+    - name: Verify | Stat the entries whose type changed
+      ansible.builtin.stat:
+        path: "/var/workspace/agentic-slack-bot/src/worker/skills/{{ item }}"
+      loop:
+        - swap
+        - swap/inside.md
+        - flat.md
+      register: slack_bot_deploy_verify_swap
+
+    - name: Verify | Assert swap became a directory and flat.md a file
+      ansible.builtin.assert:
+        that:
+          - slack_bot_deploy_verify_swap.results[0].stat.isdir
+          - slack_bot_deploy_verify_swap.results[1].stat.isreg
+          - slack_bot_deploy_verify_swap.results[2].stat.isreg
+        fail_msg: A skill whose type changed between file and directory was not replaced
