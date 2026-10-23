@@ -19,8 +19,7 @@ runs:
   using: composite
   steps:
     # The image tag vYYYY.MM.DD.<sha> is also a git tag of the application, prefixed with agentic-slack-bot-.
-    # Deploying the compose file and skills of the revision that built the image keeps all three in step.
-    # The slack_bot_deploy role then checks that this checkout is the commit the image tag ends in (preflight.yml).
+    # Deploying the compose file of the revision that built the image keeps the two in step.
     - name: Resolve the application revision
       id: revision
       shell: bash

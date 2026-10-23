@@ -5,5 +5,7 @@ services:
     build: .
   worker:
     build: .
+    volumes:
+      - ./src/worker/skills:/app/worker/skills
   scheduler:
     build: .

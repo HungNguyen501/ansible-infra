@@ -4,10 +4,6 @@ __slack_bot_deploy_compose_files:
   - docker-compose.yml
   - docker-compose.prod.yml
 
-# The same files as -f arguments, in the same order, for the command that is not a module (logs).
-__slack_bot_deploy_compose_file_args: >-
-  {{ ['-f'] | product(__slack_bot_deploy_compose_files) | map('list') | flatten }}
-
 # Environment handed to docker compose for ${NAME} interpolation. The env_write.yml task puts it in a file for the length of
 # one compose call, in a directory of its own per call (__slack_bot_deploy_env_dir and _env_file are facts it sets).
 # /run is tmpfs, so the secrets never reach the disk and a file left by a killed run is gone at reboot.

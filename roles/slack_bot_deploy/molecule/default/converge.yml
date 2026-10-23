@@ -7,11 +7,6 @@
         name: slack_bot_deploy
         tasks_from: stage.yml
 
-    - name: Converge | Sync the worker skills
-      ansible.builtin.import_role:
-        name: slack_bot_deploy
-        tasks_from: skills.yml
-
     # The file is written and removed in one run, so the idempotence check would see two changes.
     - name: Converge | Write and remove the compose environment file
       tags: molecule-idempotence-notest

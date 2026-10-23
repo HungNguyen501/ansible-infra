@@ -2,7 +2,7 @@
 # docker compose reads the environment file to fill the ${NAME} references of docker-compose.yml.
 # The values travel as a file upload. As process environment they would be typed into the SSM shell as one long command
 # line, and the session stalls on it. The file lives on tmpfs, in a directory of its own per call, so overlapping runs
-# (a manual logs run during a deploy) cannot overwrite or delete each other's file. env_remove.yml deletes the directory
+# (two deploys started by hand at once) cannot overwrite or delete each other's file. env_remove.yml deletes the directory
 # again, so callers wrap their compose task in a block with env_remove.yml under always.
 - name: Env | Pick a private directory for this call
   ansible.builtin.set_fact:

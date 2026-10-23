@@ -6,18 +6,12 @@ argument_specs:
       slack_bot_deploy_dir:
         type: path
         default: /var/workspace/agentic-slack-bot
-        description: Directory on the host that holds the compose files and the worker skills.
+        description: Directory on the host that holds the compose files.
       slack_bot_deploy_src_dir:
         type: path
         description: >-
           Local checkout of the agentic-slack-bot repository. Defaults to the SLACK_BOT_SRC_DIR environment variable,
           else to a sibling of this repository.
-      slack_bot_deploy_verify_source:
-        type: bool
-        default: true
-        description: >-
-          Check before anything is copied that the source checkout is at the commit the image tag ends in and has no
-          local edits to docker-compose.yml or src/worker/skills. Turn off for a source that is not a git checkout.
       slack_bot_deploy_image_repo:
         type: str
         required: true
@@ -55,18 +49,3 @@ argument_specs:
         type: path
         default: /var/workspace/agentic-slack-bot
         description: Directory on the host that holds the compose files.
-  logs:
-    short_description: Print recent logs of the Agentic Slack Bot
-    options:
-      slack_bot_deploy_dir:
-        type: path
-        default: /var/workspace/agentic-slack-bot
-        description: Directory on the host that holds the compose files.
-      slack_bot_deploy_log_service:
-        type: str
-        default: ""
-        description: Service to fetch logs for. Empty means every service.
-      slack_bot_deploy_log_tail:
-        type: int
-        default: 50
-        description: Number of log lines per container.

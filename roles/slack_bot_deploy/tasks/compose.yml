@@ -1,5 +1,5 @@
 ---
-# slack_bot_deploy_secret_env defaults to {} for the entry points that need no secrets, so required: true in argument_specs cannot catch an empty one.
+# required: true in argument_specs catches a missing slack_bot_deploy_secret_env, not an empty one.
 - name: Compose | Assert the secret environment is set
   ansible.builtin.assert:
     that: slack_bot_deploy_secret_env | length > 0
@@ -14,6 +14,9 @@
 
 # docker compose cannot be dry run before the files are staged, so check mode shows the staged diff only.
 # The environment file with the secrets exists on the host only while compose runs, and is removed even when compose fails.
+# The module result holds container state and compose output, no values, so it is not hidden: a failed deploy shows why.
+# A parse error of the environment file can quote a fragment of a line, which the checks in env_write.yml rule out for
+# the known causes (single quote, trailing backslash, carriage return).
 - name: Compose | Start services from the pre-built image
   when: not ansible_check_mode
   block:
@@ -34,8 +37,11 @@
         env_files:
           - "{{ __slack_bot_deploy_env_file }}"
       become: true
-      no_log: true
       register: slack_bot_deploy_compose_result
+      # One retry for a pull that fails on a brief network or registry error. Starting the services again is idempotent.
+      retries: 1
+      delay: 10
+      until: slack_bot_deploy_compose_result is succeeded
   always:
     - name: Compose | Remove the environment file
       ansible.builtin.import_tasks: env_remove.yml

@@ -1,19 +1,10 @@
 ---
+# down needs no values: compose only warns about variables that are not set, so no environment file is written.
 - name: Stop | Stop services and remove orphan containers
+  community.docker.docker_compose_v2:
+    project_src: "{{ slack_bot_deploy_dir }}"
+    files: "{{ __slack_bot_deploy_compose_files }}"
+    state: absent
+    remove_orphans: true
+  become: true
   when: not ansible_check_mode
-  block:
-    - name: Stop | Write the environment file
-      ansible.builtin.import_tasks: env_write.yml
-
-    - name: Stop | Run docker compose down
-      community.docker.docker_compose_v2:
-        project_src: "{{ slack_bot_deploy_dir }}"
-        files: "{{ __slack_bot_deploy_compose_files }}"
-        state: absent
-        remove_orphans: true
-        env_files:
-          - "{{ __slack_bot_deploy_env_file }}"
-      become: true
-  always:
-    - name: Stop | Remove the environment file
-      ansible.builtin.import_tasks: env_remove.yml

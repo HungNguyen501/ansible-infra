@@ -69,21 +69,19 @@ Create one GitHub environment per environment (`staging`, `production`) and add:
 | `ANSIBLE_SSH_KNOWN_HOSTS` | secret | `known_hosts` lines of the managed hosts (host key checking stays on) |
 | `AWS_ROLE_ARN` | variable | IAM role the workflows assume through GitHub OIDC to reach SSM hosts (the `slack_bot` group). Leave unset for an environment with no SSM hosts. |
 
-The role behind `AWS_ROLE_ARN` trusts the GitHub OIDC provider for this repository and environment. It needs `ssm:StartSession`, `ssm:TerminateSession` and `ssm:DescribeInstanceInformation` on the target instances, plus read, write and delete on the transfer bucket (`ansible_aws_ssm_bucket_name`). The check and apply jobs also check out `agentic-slack-bot` at the git tag that matches `slack_bot_deploy_image_tag`, so the compose file and skills come from the revision that built the image.
+The role behind `AWS_ROLE_ARN` trusts the GitHub OIDC provider for this repository and environment. It needs `ssm:StartSession`, `ssm:TerminateSession` and `ssm:DescribeInstanceInformation` on the target instances, plus read, write and delete on the transfer bucket (`ansible_aws_ssm_bucket_name`). The check and apply jobs also check out `agentic-slack-bot` at the git tag that matches `slack_bot_deploy_image_tag`, so the compose file comes from the revision that built the image.
 
 Protect the default branch: require a pull request, one review and the `Lint` and `Molecule` checks. With a plan that has no environment approvals, branch protection is the control that stops unreviewed changes.
 
 ## Agentic Slack Bot
 
-The `slack_bot` group deploys the Agentic Slack Bot with the `slack_bot_deploy` role. Staging hosts are reached over AWS SSM, so run Ansible with AWS credentials and the [session-manager-plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) installed. The compose file and skills come from a checkout of `agentic-slack-bot` next to this repository, or from `-e slack_bot_deploy_src_dir=<path>`.
+The `slack_bot` group deploys the Agentic Slack Bot with the `slack_bot_deploy` role. Staging hosts are reached over AWS SSM, so run Ansible with AWS credentials and the [session-manager-plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) installed. The compose file comes from a checkout of `agentic-slack-bot` next to this repository, or from `-e slack_bot_deploy_src_dir=<path>`. Nothing checks it, so for a deploy from a laptop check out the tag of the image first (`git checkout agentic-slack-bot-<image tag>`): the compose file must match the image. The GitHub workflows do this for you. The worker skills are part of the image and are not copied.
 
 | Task | Command |
 |---|---|
 | Deploy | `make check ENV=staging LIMIT=slack_bot`, then `make deploy ENV=staging LIMIT=slack_bot` |
-| Copy skills only | `make deploy ENV=staging TAGS=skills` |
 | Restart without pulling | `make deploy ENV=staging TAGS=restart` |
 | Stop | `make deploy ENV=staging PLAYBOOK=playbooks/slack_bot_stop.yml` |
-| Logs | `make check ENV=staging PLAYBOOK=playbooks/slack_bot_logs.yml` |
 | Ship a new image | Change `slack_bot_deploy_image_tag` in `inventories/staging/group_vars/slack_bot/vars.yml`, then check and deploy |
 
 See [roles/slack_bot_deploy/README.md](roles/slack_bot_deploy/README.md) for the variables.

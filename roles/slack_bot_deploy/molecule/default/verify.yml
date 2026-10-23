@@ -14,13 +14,17 @@
           - "'image: example/slack-bot:v0.0.0' in (slack_bot_deploy_verify_override.content | b64decode)"
         fail_msg: docker-compose.prod.yml does not hold the image of the role variables
 
+    - name: Verify | Assert the override drops the bind mount that would hide the skills of the image
+      ansible.builtin.assert:
+        that:
+          - "'volumes: !reset []' in (slack_bot_deploy_verify_override.content | b64decode)"
+        fail_msg: The worker would mount an empty skills directory over the skills of the image
+
     - name: Verify | Stat the staged files
       ansible.builtin.stat:
         path: "{{ item }}"
       loop:
         - /var/workspace/agentic-slack-bot/docker-compose.yml
-        - /var/workspace/agentic-slack-bot/src/worker/skills/example.md
-        - /var/workspace/agentic-slack-bot/src/worker/skills/nested/kept.md
       register: slack_bot_deploy_verify_files
 
     - name: Verify | Assert the files are in place
@@ -31,30 +35,11 @@
       loop_control:
         label: "{{ item.item }}"
 
-    - name: Verify | Stat the stale skills
-      ansible.builtin.stat:
-        path: "/var/workspace/agentic-slack-bot/src/worker/skills/{{ item }}"
-      loop:
-        - stale.md
-        - removed
-        - nested/old.md
-      register: slack_bot_deploy_verify_stale
-
-    - name: Verify | Assert the stale skills are gone
-      ansible.builtin.assert:
-        that: not item.stat.exists
-        fail_msg: "{{ item.item }} survived the skills sync"
-      loop: "{{ slack_bot_deploy_verify_stale.results }}"
-      loop_control:
-        label: "{{ item.item }}"
-
     - name: Verify | Read the staged files
       ansible.builtin.slurp:
         src: "/var/workspace/agentic-slack-bot/{{ item }}"
       loop:
         - docker-compose.yml
-        - src/worker/skills/example.md
-        - src/worker/skills/nested/kept.md
       register: slack_bot_deploy_verify_content
 
     - name: Verify | Assert the staged files match the source checkout
@@ -76,23 +61,6 @@
       ansible.builtin.assert:
         that: slack_bot_deploy_verify_env.matched == 0
         fail_msg: "An environment directory with secrets was left on the host: {{ slack_bot_deploy_verify_env.files | map(attribute='path') | list }}"
-
-    - name: Verify | Stat the entries whose type changed
-      ansible.builtin.stat:
-        path: "/var/workspace/agentic-slack-bot/src/worker/skills/{{ item }}"
-      loop:
-        - swap
-        - swap/inside.md
-        - flat.md
-      register: slack_bot_deploy_verify_swap
-
-    - name: Verify | Assert swap became a directory and flat.md a file
-      ansible.builtin.assert:
-        that:
-          - slack_bot_deploy_verify_swap.results[0].stat.isdir
-          - slack_bot_deploy_verify_swap.results[1].stat.isreg
-          - slack_bot_deploy_verify_swap.results[2].stat.isreg
-        fail_msg: A skill whose type changed between file and directory was not replaced
 
 # docker compose config needs the Docker CLI, not a running daemon. It parses the file as a deploy would, so this is the
 # boundary where a change in the dotenv handling of Compose would change the secret a service receives.
@@ -182,67 +150,68 @@
             path: "{{ slack_bot_deploy_verify_scratch.path }}"
             state: absent
 
-# preflight.yml reads git, and the test fixtures are not a repository, so it gets a scratch one. Untracked and ignored
-# files are in the working tree that copy sends to the workers, so each of them must stop the deploy.
-- name: Verify the preflight of the source checkout
+# The staged override must leave the worker without the skills bind mount of the application compose file, with the real
+# merge rules of Compose. The fixture compose file has the same mount as the one of the application.
+- name: Verify the override against docker compose
   hosts: localhost
   gather_facts: false
+  vars:
+    slack_bot_deploy_image_repo: example/slack-bot
+    slack_bot_deploy_image_tag: v0.0.0
   tasks:
     - name: Verify | Make a scratch directory
       ansible.builtin.tempfile:
         state: directory
-      register: slack_bot_deploy_verify_scratch
+      register: slack_bot_deploy_verify_override_scratch
 
-    - name: Verify | Build a repository with a tagged commit
+    - name: Verify | Render the override and merge it with the compose file
       block:
-        - name: Verify | Create the skills directory
-          ansible.builtin.file:
-            path: "{{ slack_bot_deploy_verify_scratch.path }}/src/worker/skills"
-            state: directory
-            mode: "0755"
+        - name: Verify | Render the override with the role template
+          ansible.builtin.template:
+            src: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}/templates/docker-compose.prod.yml.j2"
+            dest: "{{ slack_bot_deploy_verify_override_scratch.path }}/docker-compose.prod.yml"
+            mode: "0600"
 
-        - name: Verify | Write the tracked files
-          ansible.builtin.copy:
-            dest: "{{ slack_bot_deploy_verify_scratch.path }}/{{ item.path }}"
-            content: "{{ item.content }}"
-            mode: "0644"
-          loop:
-            - {path: docker-compose.yml, content: "services: {}\n"}
-            - {path: src/worker/skills/tracked.md, content: "tracked\n"}
-            - {path: .gitignore, content: "src/worker/skills/ignored.md\n"}
-
-        - name: Verify | Commit them
+        - name: Verify | Resolve the compose file with the override
           ansible.builtin.command:
-            argv: "{{ item }}"
-            chdir: "{{ slack_bot_deploy_verify_scratch.path }}"
-          loop:
-            - [git, init, -q, .]
-            - [git, add, -A]
-            - [git, -c, user.name=t, -c, user.email=t@t, commit, -q, -m, base]
-          changed_when: true
-
-        - name: Verify | Read the commit
-          ansible.builtin.command:
-            argv: [git, rev-parse, --short=7, HEAD]
-            chdir: "{{ slack_bot_deploy_verify_scratch.path }}"
+            argv:
+              - docker
+              - compose
+              - -f
+              - "{{ lookup('ansible.builtin.env', 'MOLECULE_SCENARIO_DIRECTORY') }}/fixtures/docker-compose.yml"
+              - -f
+              - "{{ slack_bot_deploy_verify_override_scratch.path }}/docker-compose.prod.yml"
+              - config
+              - --format
+              - json
           changed_when: false
-          register: slack_bot_deploy_verify_short
+          register: slack_bot_deploy_verify_merged
 
-        - name: Verify | Run the cases
-          ansible.builtin.include_tasks: tasks/preflight_case.yml
-          loop:
-            - {file: "", expect: ""}
-            - {file: untracked.md, expect: "Preflight | Assert the compose file and skills have no local edits"}
-            - {file: ignored.md, expect: "Preflight | Assert the compose file and skills have no local edits"}
-          loop_control:
-            loop_var: case
+        - name: Verify | Resolve the compose file without the override
+          ansible.builtin.command:
+            argv:
+              - docker
+              - compose
+              - -f
+              - "{{ lookup('ansible.builtin.env', 'MOLECULE_SCENARIO_DIRECTORY') }}/fixtures/docker-compose.yml"
+              - config
+              - --format
+              - json
+          changed_when: false
+          register: slack_bot_deploy_verify_plain
+
+        - name: Verify | Assert the fixture has the mount and the override removes only that
+          ansible.builtin.assert:
+            that:
+              - __plain.worker.volumes | map(attribute='target') | list == ['/app/worker/skills']
+              - __merged.worker.volumes is not defined or __merged.worker.volumes | length == 0
+              - __merged.worker.image == 'example/slack-bot:v0.0.0'
+              - __merged.receiver.image == 'example/slack-bot:v0.0.0'
           vars:
-            slack_bot_deploy_verify_repo: "{{ slack_bot_deploy_verify_scratch.path }}"
-            slack_bot_deploy_verify_tag: "v2026.01.01.{{ slack_bot_deploy_verify_short.stdout }}"
-            case_file: "{{ case.file }}"
-            case_expect_task: "{{ case.expect }}"
+            __plain: "{{ (slack_bot_deploy_verify_plain.stdout | from_json).services }}"
+            __merged: "{{ (slack_bot_deploy_verify_merged.stdout | from_json).services }}"
       always:
         - name: Verify | Remove the scratch directory
           ansible.builtin.file:
-            path: "{{ slack_bot_deploy_verify_scratch.path }}"
+            path: "{{ slack_bot_deploy_verify_override_scratch.path }}"
             state: absent

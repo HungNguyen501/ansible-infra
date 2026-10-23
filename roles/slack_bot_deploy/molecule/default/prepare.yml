@@ -1,47 +1,9 @@
 ---
-# Skills that the fixtures do not hold: a file, a directory with a file, and a file inside a directory the source keeps.
-# Two entries have the other type than in the fixtures: swap is a file here and a directory there, flat.md the reverse.
-# The first converge must delete or replace them all, and must replace the outdated content of nested/kept.md.
-# A killed run is simulated by an environment directory older than the sweep age (6 hours).
+# A killed run is simulated by an environment directory older than the sweep age (6 hours). The first converge must remove it.
 - name: Prepare
   hosts: all
   gather_facts: false
   tasks:
-    - name: Prepare | Create the stale, kept and type-swapped skill directories
-      ansible.builtin.file:
-        path: "/var/workspace/agentic-slack-bot/src/worker/skills/{{ item }}"
-        state: directory
-        mode: "0755"
-      loop:
-        - removed
-        - nested
-        - flat.md
-
-    - name: Prepare | Create stale skill files
-      ansible.builtin.copy:
-        content: stale
-        dest: "/var/workspace/agentic-slack-bot/src/worker/skills/{{ item }}"
-        mode: "0644"
-      loop:
-        - stale.md
-        - removed/SKILL.md
-        - nested/old.md
-
-    - name: Prepare | Seed a kept skill with outdated content
-      ansible.builtin.copy:
-        content: outdated
-        dest: /var/workspace/agentic-slack-bot/src/worker/skills/nested/kept.md
-        mode: "0644"
-
-    - name: Prepare | Create entries whose type differs from the fixtures
-      ansible.builtin.copy:
-        content: "{{ item.content }}"
-        dest: "/var/workspace/agentic-slack-bot/src/worker/skills/{{ item.path }}"
-        mode: "0644"
-      loop:
-        - {path: swap, content: "a file where the source has a directory"}
-        - {path: flat.md/child.md, content: "a directory where the source has a file"}
-
     - name: Prepare | Leave an environment directory of a killed run
       ansible.builtin.file:
         path: /run/slack-bot-deploy-killedrun

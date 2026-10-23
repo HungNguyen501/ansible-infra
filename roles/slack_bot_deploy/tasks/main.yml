@@ -1,20 +1,6 @@
 ---
-# Tagged skills so that TAGS=skills, which skips staging, checks the source too. TAGS=restart copies nothing and skips it.
-- name: Slack bot deploy | Check the source checkout against the image tag
-  ansible.builtin.import_tasks: preflight.yml
-  when: slack_bot_deploy_verify_source | bool
-  tags:
-    - skills
-
 - name: Slack bot deploy | Stage compose files
   ansible.builtin.import_tasks: stage.yml
-
-# Own tag so the skills reach the host without recreating the containers: make deploy ENV=<env> TAGS=skills
-# The skills come from the same revision as the image (see slack_bot_deploy_src_dir), so a new skill ships with a new image tag.
-- name: Slack bot deploy | Sync worker skills
-  ansible.builtin.import_tasks: skills.yml
-  tags:
-    - skills
 
 - name: Slack bot deploy | Start services
   ansible.builtin.import_tasks: compose.yml

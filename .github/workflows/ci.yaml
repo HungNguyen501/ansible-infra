@@ -37,7 +37,7 @@ jobs:
         with:
           persist-credentials: false # a push event reads the git history, a pull request does not need it
 
-      # Any file that is not markdown, or any file of a Molecule scenario: the scenarios use .md files as test fixtures.
+      # Any file that is not markdown. The Molecule scenarios hold no markdown fixtures.
       # A rename counts as a delete plus an add, so moving a role file to a .md name is still a change.
       - name: Look for changes other than documentation
         id: filter
@@ -46,7 +46,6 @@ jobs:
           filters: |
             code:
               - '!**/*.md'
-              - 'roles/*/molecule/**'
 
   lint:
     name: "Lint"
