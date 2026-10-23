@@ -93,3 +93,79 @@
           - slack_bot_deploy_verify_swap.results[1].stat.isreg
           - slack_bot_deploy_verify_swap.results[2].stat.isreg
         fail_msg: A skill whose type changed between file and directory was not replaced
+
+# docker compose config needs the Docker CLI, not a running daemon. It parses the file as a deploy would, so this is the
+# boundary where a change in the dotenv handling of Compose would change the secret a service receives.
+- name: Verify the environment file against docker compose
+  hosts: localhost
+  gather_facts: false
+  vars:
+    __slack_bot_deploy_compose_env:
+      PLAIN: hello
+      MULTILINE: "line one\nline two"
+      DOLLAR: "pa$$word${NOPE}"
+      BACKSLASH: 'C:\path\x'
+      WORKER_COUNT: "3"
+  tasks:
+    - name: Verify | Make a scratch directory
+      ansible.builtin.tempfile:
+        state: directory
+      register: slack_bot_deploy_verify_scratch
+
+    - name: Verify | Render the file and read it with docker compose
+      block:
+        - name: Verify | Render the environment file with the role template
+          ansible.builtin.template:
+            src: "{{ lookup('ansible.builtin.env', 'MOLECULE_PROJECT_DIRECTORY') }}/templates/env.j2"
+            dest: "{{ slack_bot_deploy_verify_scratch.path }}/compose.env"
+            mode: "0600"
+
+        - name: Verify | Write a compose file that uses every value
+          ansible.builtin.copy:
+            dest: "{{ slack_bot_deploy_verify_scratch.path }}/docker-compose.yml"
+            mode: "0600"
+            content: |
+              services:
+                probe:
+                  image: busybox
+                  environment:
+                    PLAIN: ${PLAIN}
+                    MULTILINE: ${MULTILINE}
+                    DOLLAR: ${DOLLAR}
+                    BACKSLASH: ${BACKSLASH}
+                  deploy:
+                    replicas: ${WORKER_COUNT}
+
+        - name: Verify | Resolve the compose file
+          ansible.builtin.command:
+            argv:
+              - docker
+              - compose
+              - --env-file
+              - "{{ slack_bot_deploy_verify_scratch.path }}/compose.env"
+              - -f
+              - "{{ slack_bot_deploy_verify_scratch.path }}/docker-compose.yml"
+              - config
+              - --format
+              - json
+          changed_when: false
+          no_log: true
+          register: slack_bot_deploy_verify_config
+
+        # compose config prints a dollar sign as two, so the expected values double theirs.
+        - name: Verify | Assert the service receives the original values
+          ansible.builtin.assert:
+            that:
+              - __probe.environment.PLAIN == 'hello'
+              - __probe.environment.MULTILINE == 'line one\nline two'
+              - __probe.environment.DOLLAR == 'pa$$word${NOPE}' | replace('$', '$$')
+              - __probe.environment.BACKSLASH == 'C:\\path\\x'
+              - __probe.deploy.replicas | int == 3
+          vars:
+            __probe: "{{ (slack_bot_deploy_verify_config.stdout | from_json).services.probe }}"
+          no_log: true
+      always:
+        - name: Verify | Remove the scratch directory
+          ansible.builtin.file:
+            path: "{{ slack_bot_deploy_verify_scratch.path }}"
+            state: absent

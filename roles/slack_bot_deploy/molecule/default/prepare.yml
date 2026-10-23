@@ -2,7 +2,7 @@
 # Skills that the fixtures do not hold: a file, a directory with a file, and a file inside a directory the source keeps.
 # Two entries have the other type than in the fixtures: swap is a file here and a directory there, flat.md the reverse.
 # The first converge must delete or replace them all, and must replace the outdated content of nested/kept.md.
-# A killed run is simulated by an environment directory older than the sweep age.
+# A killed run is simulated by an environment directory older than the sweep age (6 hours).
 - name: Prepare
   hosts: all
   gather_facts: false

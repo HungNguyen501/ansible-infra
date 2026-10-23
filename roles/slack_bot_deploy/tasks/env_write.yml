@@ -39,12 +39,14 @@
       {{ (__slack_bot_deploy_env_bad_names | from_json) | join(', ') }}
 
 # A killed run leaves its directory behind until the next reboot. Sweep the ones too old to belong to a running call.
+# One call is bounded by the SSM timeout of 10 minutes per command and a few commands per call, so 6 hours leaves a
+# live call out of reach, and a lock to tell them apart would need a process that outlives the SSM command.
 - name: Env | Find directories left by earlier killed runs
   ansible.builtin.find:
     paths: /run
     patterns: "{{ __slack_bot_deploy_env_dir_prefix | basename }}*"
     file_type: directory
-    age: 1h
+    age: 6h
   become: true
   register: slack_bot_deploy_env_leftovers
 
@@ -66,6 +68,8 @@
     mode: "0700"
   become: true
 
+# template renders on the controller and uploads the result to the remote temp directory first. The default one is under
+# the home directory, on disk, so this task uses a directory on tmpfs that Ansible removes when the task ends.
 - name: Env | Write the compose environment file
   ansible.builtin.template:
     src: env.j2
@@ -76,3 +80,5 @@
   become: true
   no_log: true
   diff: false
+  vars:
+    ansible_remote_tmp: /dev/shm/.ansible-slack-bot-deploy

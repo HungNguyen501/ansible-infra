@@ -6,8 +6,15 @@
 - name: Skills | Read the tree of the source checkout
   ansible.builtin.set_fact:
     __slack_bot_deploy_skills_tree: >-
-      {{ query('community.general.filetree', slack_bot_deploy_src_dir ~ '/src/worker/skills/')
-      | selectattr('state', 'in', ['file', 'directory']) | list }}
+      {{ query('community.general.filetree', slack_bot_deploy_src_dir ~ '/src/worker/skills/') | list }}
+
+# copy follows a symlink and writes a regular file, which the next run would then treat as stale and recreate.
+- name: Skills | Assert the source tree holds no symlink
+  ansible.builtin.assert:
+    that: __slack_bot_deploy_skills_tree | selectattr('state', 'equalto', 'link') | list | length == 0
+    fail_msg: >-
+      The skills source holds symlinks, which are not supported:
+      {{ __slack_bot_deploy_skills_tree | selectattr('state', 'equalto', 'link') | map(attribute='path') | join(', ') }}
 
 - name: Skills | List the source entries as <type>:<relative path>
   ansible.builtin.set_fact:
@@ -40,6 +47,13 @@
       | map('join', ':') | list | difference(__slack_bot_deploy_skills_keep)
       | map('regex_replace', '^(file|directory):', '') | list }}
 
+# Entries that exist in both trees with another type. Check mode does not delete them, so copy would fail on them.
+- name: Skills | List the entries that changed between file and directory
+  ansible.builtin.set_fact:
+    __slack_bot_deploy_skills_swapped: >-
+      {{ __slack_bot_deploy_skills_stale
+      | intersect(__slack_bot_deploy_skills_keep | map('regex_replace', '^(file|directory):', '') | list) }}
+
 # Only the topmost stale entry of each tree is removed: deleting a directory takes its children with it.
 - name: Skills | Remove the stale skills
   ansible.builtin.file:
@@ -49,7 +63,15 @@
   when: (item | dirname) not in __slack_bot_deploy_skills_stale
   become: true
 
+- name: Skills | Report the copy that check mode cannot preview
+  ansible.builtin.debug:
+    msg: >-
+      Check mode removes nothing, so the copy is skipped. These skills change between file and directory
+      and are replaced by a real run: {{ __slack_bot_deploy_skills_swapped | join(', ') }}
+  when: ansible_check_mode and __slack_bot_deploy_skills_swapped | length > 0
+
 - name: Skills | Copy the worker skills directory
+  when: not (ansible_check_mode and __slack_bot_deploy_skills_swapped | length > 0)
   ansible.builtin.copy:
     src: "{{ slack_bot_deploy_src_dir }}/src/worker/skills/"
     dest: "{{ slack_bot_deploy_dir }}/src/worker/skills/"

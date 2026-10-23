@@ -16,7 +16,9 @@ inputs:
 runs:
   using: composite
   steps:
-    # One source of truth for the region: ansible_aws_ssm_region in the inventory. A missing role is an error only where SSM hosts exist.
+    # Decide from the effective host variables, as Ansible resolves them, not from how the YAML is written: quoting,
+    # indentation, host or group level all count. The inventory output holds decrypted vault values, so it goes straight
+    # into a script that prints two words and nothing else.
     - name: Resolve the SSM settings from the inventory
       id: ssm
       shell: bash
@@ -24,16 +26,28 @@ runs:
         set -euo pipefail
         [[ "${ENVIRONMENT}" =~ ^[a-z][a-z0-9]*$ ]] || { echo "error: invalid environment" >&2; exit 1; }
         dir="inventories/${ENVIRONMENT}"
-        if grep -rqsE '^ansible_connection:[[:space:]]*amazon\.aws\.aws_ssm' "${dir}"; then
+        [ -d "${dir}" ] || { echo "error: no inventory directory ${dir}" >&2; exit 1; }
+        password_file="${HOME}/.vault/ansible-infra_${ENVIRONMENT}"
+        if [ -f "${password_file}" ]; then
+          export ANSIBLE_VAULT_PASSWORD_FILE="${password_file}"
+        fi
+        ssm="$(ansible-inventory -i "${dir}" --list | python3 -I -c '
+        import json, os, sys
+        hosts = json.load(sys.stdin)["_meta"]["hostvars"]
+        default = os.environ["DEFAULT_REGION"]
+        regions = {v.get("ansible_aws_ssm_region") or default for v in hosts.values() if v.get("ansible_connection") == "amazon.aws.aws_ssm"}
+        if len(regions) > 1:
+            sys.exit("error: the SSM hosts use several regions (" + ", ".join(sorted(regions)) + "), this action configures one")
+        print("true" if regions else "false", next(iter(regions), ""))
+        ')"
+        read -r needed region <<< "${ssm}"
+        if [ "${needed}" = "true" ]; then
           if [ -z "${ROLE_ARN}" ]; then
             echo "error: ${ENVIRONMENT} has SSM hosts, but the AWS_ROLE_ARN variable of the ${ENVIRONMENT} environment is not set" >&2
             exit 1
           fi
-          # grep exits 1 when no file sets a region: that is the fallback case. Any other status is a real read error.
-          region="$({ grep -rhE '^ansible_aws_ssm_region:' "${dir}" || [ "$?" -eq 1 ]; } \
-            | head -n 1 | sed -E 's/^[^:]+:[[:space:]]*"?([a-z0-9-]+)"?[[:space:]]*$/\1/')"
           echo "needed=true" >> "${GITHUB_OUTPUT}"
-          echo "region=${region:-${DEFAULT_REGION}}" >> "${GITHUB_OUTPUT}"
+          echo "region=${region}" >> "${GITHUB_OUTPUT}"
         else
           echo "No SSM hosts in ${ENVIRONMENT}: skipping the AWS setup."
         fi

@@ -1,0 +1,23 @@
+---
+# Included once per value in converge.yml. env_write.yml must refuse the value and name PROBE, never print the value.
+- name: Probe | Try a value that does not fit a single-quoted dotenv line
+  block:
+    - name: Probe | Write the environment file
+      ansible.builtin.import_role:
+        name: slack_bot_deploy
+        tasks_from: env_write.yml
+      vars:
+        slack_bot_deploy_secret_env:
+          PROBE: "{{ slack_bot_deploy_probe_value }}"
+
+    - name: Probe | Fail when the value is accepted
+      ansible.builtin.fail:
+        msg: The value was accepted
+
+  rescue:
+    - name: Probe | Assert the validation refused it and named the variable only
+      ansible.builtin.assert:
+        that:
+          - ansible_failed_task.name == 'Env | Assert every name and value fits'
+          - "'PROBE' in ansible_failed_result.msg"
+          - slack_bot_deploy_probe_value not in ansible_failed_result.msg

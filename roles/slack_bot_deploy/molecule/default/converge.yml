@@ -47,3 +47,36 @@
           ansible.builtin.import_role:
             name: slack_bot_deploy
             tasks_from: env_remove.yml
+
+    # No Docker on the test instances, so the compose step of the real entry point fails. Whatever the reason, the
+    # always section of compose.yml must still remove the environment directory. verify.yml asserts that nothing is left.
+    - name: Converge | Run the production compose entry point with a failing compose step
+      tags: molecule-idempotence-notest
+      block:
+        - name: Converge | Start the services
+          ansible.builtin.import_role:
+            name: slack_bot_deploy
+            tasks_from: compose.yml
+      rescue:
+        - name: Converge | Assert the compose step is what failed
+          ansible.builtin.assert:
+            that: ansible_failed_task.name == 'Compose | Start the services'
+        - name: Converge | Note the expected failure
+          ansible.builtin.set_fact:
+            slack_bot_deploy_converge_failed_as_expected: true
+
+    - name: Converge | Assert the compose entry point failed
+      ansible.builtin.assert:
+        that: slack_bot_deploy_converge_failed_as_expected | default(false)
+        fail_msg: The compose entry point did not fail. Docker is installed on the instance, so this test no longer covers the failure path.
+      tags: molecule-idempotence-notest
+
+    - name: Converge | Refuse values the dotenv format cannot hold
+      ansible.builtin.include_tasks: tasks/bad_env.yml
+      loop:
+        - "it's"
+        - "ends with a backslash\\"
+        - "carriage\rreturn"
+      loop_control:
+        loop_var: slack_bot_deploy_probe_value
+      tags: molecule-idempotence-notest
