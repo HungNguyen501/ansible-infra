@@ -1,0 +1,36 @@
+---
+name: Set up AWS access for SSM
+description: Assume an AWS role through GitHub OIDC and install the Session Manager plugin, so Ansible can reach hosts over amazon.aws.aws_ssm.
+inputs:
+  role-arn:
+    description: IAM role to assume. Leave empty to skip, for environments with no SSM hosts. The calling job needs permissions id-token write.
+    required: false
+    default: ""
+  region:
+    description: AWS region of the SSM hosts.
+    required: false
+    default: us-east-1
+runs:
+  using: composite
+  steps:
+    - name: Assume the AWS role
+      if: inputs.role-arn != ''
+      uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+      with:
+        role-to-assume: ${{ inputs.role-arn }}
+        aws-region: ${{ inputs.region }}
+
+    # Pinned by version and checked by hash: the plugin runs on the runner next to the AWS credentials.
+    - name: Install the Session Manager plugin
+      if: inputs.role-arn != ''
+      shell: bash
+      run: |
+        set -euo pipefail
+        deb="${RUNNER_TEMP}/session-manager-plugin.deb"
+        curl -fsSL -o "${deb}" "https://s3.amazonaws.com/session-manager-downloads/plugin/${PLUGIN_VERSION}/ubuntu_64bit/session-manager-plugin.deb"
+        echo "${PLUGIN_SHA256}  ${deb}" | sha256sum --check --strict -
+        sudo dpkg -i "${deb}"
+        session-manager-plugin --version
+      env:
+        PLUGIN_VERSION: 1.2.896.0
+        PLUGIN_SHA256: 53f51fcc67314a4bf85888a38a3967cd41f8d0f28a60a9469a63acf935ba713e

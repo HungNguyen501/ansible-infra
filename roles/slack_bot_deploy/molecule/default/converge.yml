@@ -11,3 +11,29 @@
       ansible.builtin.import_role:
         name: slack_bot_deploy
         tasks_from: skills.yml
+
+    # The file is written and removed in one run, so the idempotence check would see two changes.
+    - name: Converge | Write and remove the compose environment file
+      tags: molecule-idempotence-notest
+      block:
+        - name: Converge | Write the compose environment file
+          ansible.builtin.import_role:
+            name: slack_bot_deploy
+            tasks_from: env_write.yml
+
+        - name: Converge | Stat the environment file
+          ansible.builtin.stat:
+            path: /var/workspace/agentic-slack-bot/.env
+          register: slack_bot_deploy_converge_env
+
+        - name: Converge | Assert the environment file is private and holds the values
+          ansible.builtin.assert:
+            that:
+              - slack_bot_deploy_converge_env.stat.exists
+              - slack_bot_deploy_converge_env.stat.mode == '0600'
+              - slack_bot_deploy_converge_env.stat.pw_name == 'root'
+      always:
+        - name: Converge | Remove the compose environment file
+          ansible.builtin.import_role:
+            name: slack_bot_deploy
+            tasks_from: env_remove.yml

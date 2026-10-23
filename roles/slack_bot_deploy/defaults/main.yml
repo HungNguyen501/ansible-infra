@@ -3,7 +3,8 @@
 slack_bot_deploy_dir: /var/workspace/agentic-slack-bot
 
 # Local checkout of the agentic-slack-bot repository. Its docker-compose.yml and src/worker/skills/ are copied to the host.
-slack_bot_deploy_src_dir: "{{ playbook_dir }}/../../agentic-slack-bot"
+# The SLACK_BOT_SRC_DIR environment variable overrides the sibling checkout. The deploy workflows set it.
+slack_bot_deploy_src_dir: "{{ lookup('ansible.builtin.env', 'SLACK_BOT_SRC_DIR') | default(playbook_dir ~ '/../../agentic-slack-bot', true) }}"
 
 # Compose services started by a deploy and restarted by the restart tag.
 slack_bot_deploy_services:

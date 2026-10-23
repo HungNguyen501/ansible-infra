@@ -1,17 +1,27 @@
 ---
-# Read-only, so it also runs under --check.
+# Read-only for the services, so it also runs under --check. The .env file is a short-lived side effect, removed again
+# even when the command fails, so its tasks run in check mode too.
 - name: Logs | Fetch recent logs
-  ansible.builtin.command:
-    argv: >-
-      {{ ['docker', 'compose'] + __slack_bot_deploy_compose_file_args
-      + ['logs', '--tail', slack_bot_deploy_log_tail | string]
-      + ([slack_bot_deploy_log_service] if slack_bot_deploy_log_service else []) }}
-    chdir: "{{ slack_bot_deploy_dir }}"
-  environment: "{{ __slack_bot_deploy_compose_env }}"
-  become: true
-  check_mode: false
-  changed_when: false
-  register: slack_bot_deploy_logs_result
+  block:
+    - name: Logs | Write the environment file
+      ansible.builtin.import_tasks: env_write.yml
+      check_mode: false
+
+    - name: Logs | Run docker compose logs
+      ansible.builtin.command:
+        argv: >-
+          {{ ['docker', 'compose'] + __slack_bot_deploy_compose_file_args
+          + ['logs', '--tail', slack_bot_deploy_log_tail | string]
+          + ([slack_bot_deploy_log_service] if slack_bot_deploy_log_service else []) }}
+        chdir: "{{ slack_bot_deploy_dir }}"
+      become: true
+      check_mode: false
+      changed_when: false
+      register: slack_bot_deploy_logs_result
+  always:
+    - name: Logs | Remove the environment file
+      ansible.builtin.import_tasks: env_remove.yml
+      check_mode: false
 
 # The logs are the point of this entry point, so the output has no verbosity gate.
 # compose forwards the container stderr to its own stderr, so both streams are shown.

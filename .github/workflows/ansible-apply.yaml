@@ -54,6 +54,7 @@ jobs:
     permissions:
       contents: read
       actions: read
+      id-token: write # OIDC to AWS for the SSM connection
     steps:
       - name: Verify the confirmation and the reviewed check run
         shell: bash
@@ -94,6 +95,16 @@ jobs:
         uses: ./.github/actions/setup-ansible
         with:
           vault-password: ${{ secrets.ANSIBLE_VAULT_PASSWORD }}
+          environment: ${{ inputs.environment }}
+
+      - name: Set up AWS access for SSM
+        uses: ./.github/actions/setup-aws-ssm
+        with:
+          role-arn: ${{ vars.AWS_ROLE_ARN }}
+
+      - name: Check out the Agentic Slack Bot
+        uses: ./.github/actions/checkout-slack-bot
+        with:
           environment: ${{ inputs.environment }}
 
       - name: Configure SSH access

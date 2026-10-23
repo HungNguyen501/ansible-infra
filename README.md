@@ -67,6 +67,9 @@ Create one GitHub environment per environment (`staging`, `production`) and add:
 | `ANSIBLE_VAULT_PASSWORD` | secret | Vault password of that environment |
 | `ANSIBLE_SSH_PRIVATE_KEY` | secret | Private key of the deploy user |
 | `ANSIBLE_SSH_KNOWN_HOSTS` | secret | `known_hosts` lines of the managed hosts (host key checking stays on) |
+| `AWS_ROLE_ARN` | variable | IAM role the workflows assume through GitHub OIDC to reach SSM hosts (the `slack_bot` group). Leave unset for an environment with no SSM hosts. |
+
+The role behind `AWS_ROLE_ARN` trusts the GitHub OIDC provider for this repository and environment. It needs `ssm:StartSession`, `ssm:TerminateSession` and `ssm:DescribeInstanceInformation` on the target instances, plus read, write and delete on the transfer bucket (`ansible_aws_ssm_bucket_name`). The check and apply jobs also check out `agentic-slack-bot` at the git tag that matches `slack_bot_deploy_image_tag`, so the compose file and skills come from the revision that built the image.
 
 Protect the default branch: require a pull request, one review and the `Lint` and `Molecule` checks. With a plan that has no environment approvals, branch protection is the control that stops unreviewed changes.
 

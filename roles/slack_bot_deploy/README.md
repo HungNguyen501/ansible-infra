@@ -9,7 +9,7 @@ The host needs Docker with the compose plugin (2.18 or newer) and Python 3.
 | Variable | Default | Description |
 |---|---|---|
 | `slack_bot_deploy_dir` | `/var/workspace/agentic-slack-bot` | Directory on the host that holds the compose files and the worker skills. |
-| `slack_bot_deploy_src_dir` | `{{ playbook_dir }}/../../agentic-slack-bot` | Local checkout of the `agentic-slack-bot` repository. |
+| `slack_bot_deploy_src_dir` | `$SLACK_BOT_SRC_DIR`, else `{{ playbook_dir }}/../../agentic-slack-bot` | Local checkout of the `agentic-slack-bot` repository. The deploy workflows set the environment variable. |
 | `slack_bot_deploy_image_repo` | required | Docker Hub repository of the image. |
 | `slack_bot_deploy_image_tag` | required | Image tag to deploy. Pin a version. |
 | `slack_bot_deploy_services` | `[redis, receiver, worker, scheduler, ngrok]` | Compose services started and restarted. |
@@ -19,14 +19,14 @@ The host needs Docker with the compose plugin (2.18 or newer) and Python 3.
 | `slack_bot_deploy_log_service` | `""` | Service for the `logs` entry point. Empty means all. |
 | `slack_bot_deploy_log_tail` | `50` | Log lines per container for the `logs` entry point. |
 
-The environment is handed to `docker compose` as process environment to fill the `${NAME}` references of `docker-compose.yml`. No `.env` file is written to the host. Secret values must not contain a placeholder: a deploy stops while any value is `replace-me`.
+The environment fills the `${NAME}` references of `docker-compose.yml` through a `.env` file in the deploy directory (owner root, mode `0600`). The role writes it just before each compose call and deletes it right after, even when the call fails, so secrets are on disk only while compose runs. A file upload is used, because passing the values as process environment makes the SSM session stall. If a run is killed mid-way the file can stay behind: `make deploy` with `PLAYBOOK=playbooks/slack_bot_stop.yml` or the next deploy replaces and removes it. Secret values must not contain a placeholder: a deploy stops while any value is `replace-me`.
 
 ## Entry points and tags
 
 | What | How |
 |---|---|
 | Full deploy | `playbooks/slack_bot.yml` (part of `site.yml`) |
-| Copy the worker skills only | `TAGS=skills`. Services read the skills volume on the next request, no restart needed. |
+| Copy the worker skills only | `TAGS=skills`. Services read the skills volume on the next request, no restart needed. The skills are those of the checkout, which the workflows pin to the image tag. |
 | Restart without pulling | `TAGS=restart` (tagged `never`, so a full deploy does not run it) |
 | Stop and remove orphans | `playbooks/slack_bot_stop.yml` (`tasks_from: stop.yml`) |
 | Recent logs | `playbooks/slack_bot_logs.yml` (`tasks_from: logs.yml`) |

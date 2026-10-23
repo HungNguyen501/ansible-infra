@@ -2,10 +2,16 @@
 # How Ansible reaches the slack_bot hosts of the staging environment: AWS Systems Manager Session Manager, no SSH.
 # Needs AWS credentials and the session-manager-plugin on the machine that runs Ansible.
 ansible_connection: amazon.aws.aws_ssm
+# SSM opens the session as the SSM agent user, not as the ansible_user of group_vars/all (deploy, an SSH user that does not exist on these hosts).
+# Without these two, Ansible expands ~deploy for its temporary directory and fails with "cannot create directory ~deploy".
+ansible_user: ssm-user
+ansible_remote_tmp: /tmp/.ansible/tmp
 ansible_python_interpreter: /usr/bin/python3
 ansible_aws_ssm_bucket_name: 100xteamai-ansible-ci
 ansible_aws_ssm_s3_addressing_style: virtual
 ansible_aws_ssm_region: us-east-1
+# Seconds the plugin waits for the host to answer a command. The default of 60 is shorter than an image pull and the compose wait.
+ansible_aws_ssm_timeout: 600
 ansible_become: true
 ansible_become_method: sudo
 ansible_become_user: root

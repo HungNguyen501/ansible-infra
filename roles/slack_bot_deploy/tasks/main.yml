@@ -2,7 +2,8 @@
 - name: Slack bot deploy | Stage compose files
   ansible.builtin.import_tasks: stage.yml
 
-# Own tag so skill edits go live without a deploy: make deploy ENV=<env> TAGS=skills
+# Own tag so the skills reach the host without recreating the containers: make deploy ENV=<env> TAGS=skills
+# The skills come from the same revision as the image (see slack_bot_deploy_src_dir), so a new skill ships with a new image tag.
 - name: Slack bot deploy | Sync worker skills
   ansible.builtin.import_tasks: skills.yml
   tags:

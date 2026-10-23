@@ -13,23 +13,30 @@
   no_log: true
 
 # docker compose cannot be dry run before the files are staged, so check mode shows the staged diff only.
-# The environment is passed to the process, so no .env file with secrets is ever written to the host.
+# The .env file with the secrets exists on the host only while compose runs, and is removed even when compose fails.
 - name: Compose | Start services from the pre-built image
-  community.docker.docker_compose_v2:
-    project_src: "{{ slack_bot_deploy_dir }}"
-    files: "{{ __slack_bot_deploy_compose_files }}"
-    services: "{{ slack_bot_deploy_services }}"
-    state: present
-    pull: missing
-    build: never
-    recreate: auto
-    wait: true
-    wait_timeout: 120
-  environment: "{{ __slack_bot_deploy_compose_env }}"
-  become: true
-  no_log: true
   when: not ansible_check_mode
-  register: slack_bot_deploy_compose_result
+  block:
+    - name: Compose | Write the environment file
+      ansible.builtin.import_tasks: env_write.yml
+
+    - name: Compose | Start the services
+      community.docker.docker_compose_v2:
+        project_src: "{{ slack_bot_deploy_dir }}"
+        files: "{{ __slack_bot_deploy_compose_files }}"
+        services: "{{ slack_bot_deploy_services }}"
+        state: present
+        pull: missing
+        build: never
+        recreate: auto
+        wait: true
+        wait_timeout: 120
+      become: true
+      no_log: true
+      register: slack_bot_deploy_compose_result
+  always:
+    - name: Compose | Remove the environment file
+      ansible.builtin.import_tasks: env_remove.yml
 
 - name: Compose | Show service state
   ansible.builtin.debug:
