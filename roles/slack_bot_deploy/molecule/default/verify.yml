@@ -20,6 +20,7 @@
       loop:
         - /var/workspace/agentic-slack-bot/docker-compose.yml
         - /var/workspace/agentic-slack-bot/src/worker/skills/example.md
+        - /var/workspace/agentic-slack-bot/src/worker/skills/nested/kept.md
       register: slack_bot_deploy_verify_files
 
     - name: Verify | Assert the files are in place
@@ -27,5 +28,22 @@
         that: item.stat.exists
         fail_msg: "{{ item.item }} is missing"
       loop: "{{ slack_bot_deploy_verify_files.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Verify | Stat the stale skills
+      ansible.builtin.stat:
+        path: "/var/workspace/agentic-slack-bot/src/worker/skills/{{ item }}"
+      loop:
+        - stale.md
+        - removed
+        - nested/old.md
+      register: slack_bot_deploy_verify_stale
+
+    - name: Verify | Assert the stale skills are gone
+      ansible.builtin.assert:
+        that: not item.stat.exists
+        fail_msg: "{{ item.item }} survived the skills sync"
+      loop: "{{ slack_bot_deploy_verify_stale.results }}"
       loop_control:
         label: "{{ item.item }}"

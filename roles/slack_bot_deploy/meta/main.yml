@@ -1,6 +1,7 @@
 ---
 galaxy_info:
   author: ansible-infra maintainers
+  namespace: ansible_infra # author has a space, which is not a valid Galaxy namespace
   description: Deploy the Agentic Slack Bot to a host with docker compose.
   license: Apache-2.0
   min_ansible_version: "2.18"

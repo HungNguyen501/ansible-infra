@@ -8,3 +8,42 @@
     mode: "0644"
     directory_mode: "0755"
   become: true
+
+# copy never deletes, so a skill removed or renamed in the source would stay live for the workers.
+# ansible.posix.synchronize cannot do this: it needs rsync over SSH, and the hosts are reached through SSM.
+- name: Skills | List the skills of the source checkout
+  ansible.builtin.set_fact:
+    __slack_bot_deploy_skills_keep: >-
+      {{ query('community.general.filetree', slack_bot_deploy_src_dir ~ '/src/worker/skills/')
+      | map(attribute='path') | list }}
+
+# An empty source means a broken checkout (uninitialised submodule, sparse checkout), not a request to delete every skill.
+- name: Skills | Assert the source holds skills
+  ansible.builtin.assert:
+    that: __slack_bot_deploy_skills_keep | length > 0
+    fail_msg: "{{ slack_bot_deploy_src_dir }}/src/worker/skills/ is empty. Refusing to prune the deployed skills."
+
+- name: Skills | Find the deployed skills
+  ansible.builtin.find:
+    paths: "{{ slack_bot_deploy_dir }}/src/worker/skills"
+    file_type: any
+    recurse: true
+    hidden: true
+  become: true
+  register: slack_bot_deploy_skills_found
+
+- name: Skills | List the skills that are gone from the source
+  ansible.builtin.set_fact:
+    __slack_bot_deploy_skills_stale: >-
+      {{ slack_bot_deploy_skills_found.files | map(attribute='path')
+      | map('relpath', slack_bot_deploy_dir ~ '/src/worker/skills')
+      | reject('in', __slack_bot_deploy_skills_keep) | list }}
+
+# Only the topmost stale entry of each tree is removed: deleting a directory takes its children with it.
+- name: Skills | Remove the skills that are gone from the source
+  ansible.builtin.file:
+    path: "{{ slack_bot_deploy_dir }}/src/worker/skills/{{ item }}"
+    state: absent
+  loop: "{{ __slack_bot_deploy_skills_stale }}"
+  when: (item | dirname) not in __slack_bot_deploy_skills_stale
+  become: true

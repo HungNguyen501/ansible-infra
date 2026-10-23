@@ -5,4 +5,5 @@
     files: "{{ __slack_bot_deploy_compose_files }}"
     state: absent
     remove_orphans: true
+  environment: "{{ __slack_bot_deploy_compose_env }}"
   become: true

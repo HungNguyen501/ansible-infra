@@ -9,13 +9,22 @@ platforms:
     pre_build_image: true
     privileged: true
     command: ""
+    cgroupns_mode: host
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
   - name: debian12
     image: geerlingguy/docker-debian12-ansible:latest@sha256:43b3f59882ccc0ba5deb3b3ecac727084bb082a3230b5258c500395694b5497f
     pre_build_image: true
     privileged: true
     command: ""
+    cgroupns_mode: host
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
 provisioner:
   name: ansible
+  env:
+    # Molecule links the role as ansible_infra.<name>. This path keeps the short role name of converge.yml, which ansible-lint also resolves.
+    ANSIBLE_ROLES_PATH: "${MOLECULE_PROJECT_DIRECTORY}/.."
   inventory:
     group_vars:
       all:

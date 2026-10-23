@@ -55,6 +55,8 @@ jobs:
 
       - name: Set up Ansible
         uses: ./.github/actions/setup-ansible
+        with:
+          test-tools: "true"
 
       - name: Molecule tests
         run: make test
