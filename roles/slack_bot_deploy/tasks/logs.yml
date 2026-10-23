@@ -14,6 +14,9 @@
   register: slack_bot_deploy_logs_result
 
 # The logs are the point of this entry point, so the output has no verbosity gate.
+# compose forwards the container stderr to its own stderr, so both streams are shown.
 - name: Logs | Print logs
   ansible.builtin.debug:
-    msg: "{{ slack_bot_deploy_logs_result.stdout_lines }}"
+    msg:
+      stdout: "{{ slack_bot_deploy_logs_result.stdout_lines }}"
+      stderr: "{{ slack_bot_deploy_logs_result.stderr_lines }}"

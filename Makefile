@@ -44,7 +44,7 @@ test:  # molecule: every role that has a molecule/ folder. Needs a running Docke
 		[ -d "$$dir" ] || continue; \
 		role=$$(dirname "$$dir"); \
 		echo "==> molecule test $$role"; \
-		(cd "$$role" && uv run molecule test) || exit 1; \
+		(cd "$$role" && uv run molecule -c "$(CURDIR)/molecule/base.yml" test) || exit 1; \
 	done
 
 check: check-env  # dry run with a diff: make check ENV=staging [PLAYBOOK=..] [LIMIT=..] [TAGS=..] [SKIP_TAGS=..]

@@ -1,4 +1,10 @@
 ---
+# slack_bot_deploy_secret_env defaults to {} for the entry points that need no secrets, so required: true in argument_specs cannot catch an empty one.
+- name: Compose | Assert the secret environment is set
+  ansible.builtin.assert:
+    that: slack_bot_deploy_secret_env | length > 0
+    fail_msg: slack_bot_deploy_secret_env is empty. Alias the vault_* variables in the inventory.
+
 - name: Compose | Assert no placeholder value is left in the environment
   ansible.builtin.assert:
     that:
@@ -17,6 +23,8 @@
     pull: missing
     build: never
     recreate: auto
+    wait: true
+    wait_timeout: 120
   environment: "{{ __slack_bot_deploy_compose_env }}"
   become: true
   no_log: true

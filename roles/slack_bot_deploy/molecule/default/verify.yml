@@ -47,3 +47,20 @@
       loop: "{{ slack_bot_deploy_verify_stale.results }}"
       loop_control:
         label: "{{ item.item }}"
+
+    - name: Verify | Read the staged files
+      ansible.builtin.slurp:
+        src: "/var/workspace/agentic-slack-bot/{{ item }}"
+      loop:
+        - docker-compose.yml
+        - src/worker/skills/example.md
+        - src/worker/skills/nested/kept.md
+      register: slack_bot_deploy_verify_content
+
+    - name: Verify | Assert the staged files match the source checkout
+      ansible.builtin.assert:
+        that: (item.content | b64decode) == lookup('ansible.builtin.file', slack_bot_deploy_src_dir ~ '/' ~ item.item, rstrip=false)
+        fail_msg: "{{ item.item }} differs from the source checkout"
+      loop: "{{ slack_bot_deploy_verify_content.results }}"
+      loop_control:
+        label: "{{ item.item }}"

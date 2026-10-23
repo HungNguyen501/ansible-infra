@@ -1,6 +1,6 @@
 ---
 # Skills that the fixtures do not hold: a file, a directory with a file, and a file inside a directory the source keeps.
-# The first converge must delete them all and keep nested/kept.md.
+# The first converge must delete them all, and must replace the outdated content of nested/kept.md.
 - name: Prepare
   hosts: all
   gather_facts: false
@@ -23,3 +23,9 @@
         - stale.md
         - removed/SKILL.md
         - nested/old.md
+
+    - name: Prepare | Seed a kept skill with outdated content
+      ansible.builtin.copy:
+        content: outdated
+        dest: /var/workspace/agentic-slack-bot/src/worker/skills/nested/kept.md
+        mode: "0644"
