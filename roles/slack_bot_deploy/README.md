@@ -1,18 +1,17 @@
 # slack_bot_deploy
 
-Deploys the Agentic Slack Bot (redis, receiver, worker, scheduler, ngrok) to a host with docker compose. The compose file is copied from a local checkout of `agentic-slack-bot`, the receiver, worker and scheduler run a pre-built image from Docker Hub, and nothing is built on the host. The worker skills are part of that image: the prod override drops the bind mount of `docker-compose.yml` that would hide them.
+Deploys the Agentic Slack Bot (redis, receiver, worker, scheduler, ngrok) to a host with docker compose. The compose file is rendered from `templates/docker-compose.yml.j2` (a copy of the application's `docker-compose.yml` that uses the pre-built image from Docker Hub and has no skills mount, since the worker skills are part of the image). Nothing is built on the host. When the application changes its compose file, change the template in the same pull request as the image tag.
 
-The host needs Docker with the compose plugin (2.24 or newer, for `!reset` in the override) and Python 3.
+The host needs Docker with the compose plugin (2.18 or newer) and Python 3.
 
 ## Variables
 
 | Variable | Default | Description |
 |---|---|---|
 | `slack_bot_deploy_dir` | `/var/workspace/agentic-slack-bot` | Directory on the host that holds the compose files. |
-| `slack_bot_deploy_src_dir` | `$SLACK_BOT_SRC_DIR`, else `{{ playbook_dir }}/../../agentic-slack-bot` | Local checkout of the `agentic-slack-bot` repository. The deploy workflows set the environment variable. |
 | `slack_bot_deploy_image_repo` | required | Docker Hub repository of the image. |
-| `slack_bot_deploy_image_tag` | required | Image tag to deploy. Pin a version. |
-| `slack_bot_deploy_services` | `[redis, receiver, worker, scheduler, ngrok]` | Compose services started and restarted. |
+| `slack_bot_deploy_image_tag` | required | Image tag to deploy. Pin a version. The repository passes it with `IMAGE_TAG=<tag>` on `make`, or with the `image_tag` input of the workflows, so no inventory holds it. |
+| `slack_bot_deploy_services` | `[redis, receiver, worker, scheduler, ngrok]` | Compose services started by a deploy and restarted by the restart playbook. `make` sets it from `SERVICE=<name>[,<name>]`. |
 | `slack_bot_deploy_worker_count` | `2` | Number of worker containers. |
 | `slack_bot_deploy_env` | `{}` | Non-secret `NAME: value` environment of the compose project. |
 | `slack_bot_deploy_secret_env` | required | Secret `NAME: value` environment. Alias `vault_*` variables here. |
@@ -24,7 +23,7 @@ The environment fills the `${NAME}` references of `docker-compose.yml` through a
 | What | How |
 |---|---|
 | Full deploy | `playbooks/slack_bot.yml` (part of `site.yml`) |
-| Restart without pulling | `TAGS=restart` (tagged `never`, so a full deploy does not run it) |
+| Restart without pulling | `playbooks/slack_bot_restart.yml` (`tasks_from: restart.yml`), no image tag needed |
 | Stop and remove orphans | `playbooks/slack_bot_stop.yml` (`tasks_from: stop.yml`) |
 
 Under `--check` the files are staged with a diff, and the compose tasks are skipped because compose cannot be dry run.

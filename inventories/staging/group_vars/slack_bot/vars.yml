@@ -1,8 +1,8 @@
 ---
 # Settings of the Agentic Slack Bot in staging. Environment values are aliased from group_vars/all/vault.yml.
+# The image tag is not here: pass it with make check|deploy ENV=staging IMAGE_TAG=<tag>.
 slack_bot_deploy_dir: /var/workspace/agentic-slack-bot
 slack_bot_deploy_image_repo: hungwnguyen/agentic-slack-bot
-slack_bot_deploy_image_tag: v2026.10.09.9ea548
 slack_bot_deploy_worker_count: 4
 
 # Every environment value of the compose project is aliased from group_vars/all/vault.yml, so none is written here.

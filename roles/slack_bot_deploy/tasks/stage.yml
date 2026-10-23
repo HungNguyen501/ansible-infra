@@ -8,20 +8,18 @@
     mode: "0755"
   become: true
 
-- name: Stage | Copy docker-compose.yml
-  ansible.builtin.copy:
-    src: "{{ slack_bot_deploy_src_dir }}/docker-compose.yml"
+- name: Stage | Render docker-compose.yml with the image tag
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
     dest: "{{ slack_bot_deploy_dir }}/docker-compose.yml"
     owner: root
     group: root
     mode: "0644"
   become: true
 
-- name: Stage | Render docker-compose.prod.yml with the image tag
-  ansible.builtin.template:
-    src: docker-compose.prod.yml.j2
-    dest: "{{ slack_bot_deploy_dir }}/docker-compose.prod.yml"
-    owner: root
-    group: root
-    mode: "0644"
+# Earlier versions of the role kept the image and the removed skills mount in a second file.
+- name: Stage | Remove the override file of earlier versions
+  ansible.builtin.file:
+    path: "{{ slack_bot_deploy_dir }}/docker-compose.prod.yml"
+    state: absent
   become: true

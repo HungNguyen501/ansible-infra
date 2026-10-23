@@ -2,7 +2,6 @@
 # Internal values. Callers do not override these; tunables belong in defaults/main.yml.
 __slack_bot_deploy_compose_files:
   - docker-compose.yml
-  - docker-compose.prod.yml
 
 # Environment handed to docker compose for ${NAME} interpolation. The env_write.yml task puts it in a file for the length of
 # one compose call, in a directory of its own per call (__slack_bot_deploy_env_dir and _env_file are facts it sets).

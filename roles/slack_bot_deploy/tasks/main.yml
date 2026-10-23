@@ -4,13 +4,3 @@
 
 - name: Slack bot deploy | Start services
   ansible.builtin.import_tasks: compose.yml
-
-# never: runs only with TAGS=restart, so a full deploy does not restart twice.
-# The role tag slack_bot_deploy is inherited, so --tags slack_bot_deploy would select these tasks despite never.
-# The when closes that gap. Any new alias tag of these tasks must be added to it.
-- name: Slack bot deploy | Restart services
-  ansible.builtin.import_tasks: restart.yml
-  when: "'restart' in ansible_run_tags"
-  tags:
-    - never
-    - restart

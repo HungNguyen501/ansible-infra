@@ -7,11 +7,6 @@ argument_specs:
         type: path
         default: /var/workspace/agentic-slack-bot
         description: Directory on the host that holds the compose files.
-      slack_bot_deploy_src_dir:
-        type: path
-        description: >-
-          Local checkout of the agentic-slack-bot repository. Defaults to the SLACK_BOT_SRC_DIR environment variable,
-          else to a sibling of this repository.
       slack_bot_deploy_image_repo:
         type: str
         required: true
@@ -29,7 +24,7 @@ argument_specs:
           - worker
           - scheduler
           - ngrok
-        description: Compose services started by a deploy and restarted by the restart tag.
+        description: Compose services started by a deploy and restarted by the restart playbook.
       slack_bot_deploy_worker_count:
         type: int
         default: 2
@@ -49,3 +44,20 @@ argument_specs:
         type: path
         default: /var/workspace/agentic-slack-bot
         description: Directory on the host that holds the compose files.
+  restart:
+    short_description: Restart the Agentic Slack Bot without pulling
+    options:
+      slack_bot_deploy_dir:
+        type: path
+        default: /var/workspace/agentic-slack-bot
+        description: Directory on the host that holds the compose files.
+      slack_bot_deploy_services:
+        type: list
+        elements: str
+        default:
+          - redis
+          - receiver
+          - worker
+          - scheduler
+          - ngrok
+        description: Compose services to restart.
