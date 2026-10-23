@@ -1,0 +1,8 @@
+# Extends the default ruleset. Add an allowlist entry only with a one-line reason beside it.
+[extend]
+useDefault = true
+
+[[allowlists]]
+# Skill name -> git commit SHA of the installed skill revision. The 40 hex characters match generic-api-key but are public revision ids.
+description = "agent-skills hub manifest"
+paths = ['''^\.claude/skills/\.hub-skills\.json$''']
