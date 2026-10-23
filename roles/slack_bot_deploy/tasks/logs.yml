@@ -1,5 +1,5 @@
 ---
-# Read-only for the services, so it also runs under --check. The .env file is a short-lived side effect, removed again
+# Read-only for the services, so it also runs under --check. The environment file is a short-lived side effect, removed again
 # even when the command fails, so its tasks run in check mode too.
 - name: Logs | Fetch recent logs
   block:

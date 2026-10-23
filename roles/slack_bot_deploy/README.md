@@ -10,6 +10,7 @@ The host needs Docker with the compose plugin (2.18 or newer) and Python 3.
 |---|---|---|
 | `slack_bot_deploy_dir` | `/var/workspace/agentic-slack-bot` | Directory on the host that holds the compose files and the worker skills. |
 | `slack_bot_deploy_src_dir` | `$SLACK_BOT_SRC_DIR`, else `{{ playbook_dir }}/../../agentic-slack-bot` | Local checkout of the `agentic-slack-bot` repository. The deploy workflows set the environment variable. |
+| `slack_bot_deploy_verify_source` | `true` | Before copying, check the source checkout is at the commit the image tag ends in, with no local edits to the compose file or skills. |
 | `slack_bot_deploy_image_repo` | required | Docker Hub repository of the image. |
 | `slack_bot_deploy_image_tag` | required | Image tag to deploy. Pin a version. |
 | `slack_bot_deploy_services` | `[redis, receiver, worker, scheduler, ngrok]` | Compose services started and restarted. |
@@ -19,14 +20,14 @@ The host needs Docker with the compose plugin (2.18 or newer) and Python 3.
 | `slack_bot_deploy_log_service` | `""` | Service for the `logs` entry point. Empty means all. |
 | `slack_bot_deploy_log_tail` | `50` | Log lines per container for the `logs` entry point. |
 
-The environment fills the `${NAME}` references of `docker-compose.yml` through a file under `/run/slack-bot-deploy/` (owner root, mode `0600`). `/run` is tmpfs, so the secrets never reach the disk. The role writes the file just before each compose call and deletes it right after, even when the call fails. A file upload is used, because passing the values as process environment makes the SSM session stall. If a run is killed mid-way the file can stay behind until the next compose call removes it or the host reboots. Secret values must not contain a placeholder: a deploy stops while any value is `replace-me`.
+The environment fills the `${NAME}` references of `docker-compose.yml` through a file under `/run/slack-bot-deploy/` (owner root, mode `0600`). `/run` is tmpfs, so the secrets never reach the disk. The role writes the file just before each compose call and deletes it right after, even when the call fails. A file upload is used, because passing the values as process environment makes the SSM session stall. Each call uses a directory of its own, `/run/slack-bot-deploy-<random>`, and the file is uploaded through a tmpfs temporary directory (`/dev/shm`), so it never touches the disk on the way. A call removes only its own directory. If a run is killed mid-way its directory stays until the next call finds it older than 6 hours or the host reboots. Values must not contain a single quote, a trailing backslash or a carriage return: the deploy stops and names the variable. Secret values must not contain a placeholder: a deploy stops while any value is `replace-me`.
 
 ## Entry points and tags
 
 | What | How |
 |---|---|
 | Full deploy | `playbooks/slack_bot.yml` (part of `site.yml`) |
-| Copy the worker skills only | `TAGS=skills`. Services read the skills volume on the next request, no restart needed. The skills are those of the checkout, which the workflows pin to the image tag. |
+| Copy the worker skills only | `TAGS=skills`. Services read the skills volume on the next request, no restart needed. The skills are those of the checkout, which the workflows pin to the image tag. Entries the source lacks, or that changed between file and directory, are removed first. Symlinks in the source are refused. |
 | Restart without pulling | `TAGS=restart` (tagged `never`, so a full deploy does not run it) |
 | Stop and remove orphans | `playbooks/slack_bot_stop.yml` (`tasks_from: stop.yml`) |
 | Recent logs | `playbooks/slack_bot_logs.yml` (`tasks_from: logs.yml`) |

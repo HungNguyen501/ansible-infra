@@ -13,7 +13,7 @@
   no_log: true
 
 # docker compose cannot be dry run before the files are staged, so check mode shows the staged diff only.
-# The .env file with the secrets exists on the host only while compose runs, and is removed even when compose fails.
+# The environment file with the secrets exists on the host only while compose runs, and is removed even when compose fails.
 - name: Compose | Start services from the pre-built image
   when: not ansible_check_mode
   block:

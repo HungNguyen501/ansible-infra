@@ -5,7 +5,7 @@ Ansible automation for ansible-infra
 ## Prerequisites
 
 - [uv](https://docs.astral.sh/uv/) and Python 3.12 or newer
-- Docker, for `make test` (Molecule)
+- Docker with the Compose v2 plugin (`docker compose version`), for `make test` (Molecule)
 - SSH access to the hosts as the user in `group_vars/all/connection.yml`; the `slack_bot` hosts use AWS SSM instead (see below)
 
 ## Setup
@@ -37,7 +37,7 @@ ansible-infra/
 | `make lint` | yamllint and ansible-lint (production profile) |
 | `make scan` | gitleaks secret scan of the history (needs Docker) |
 | `make syntax` | `ansible-playbook --syntax-check` for every environment |
-| `make test` | Molecule tests of every role (needs Docker) |
+| `make test` | Molecule tests of every role (needs Docker with Compose v2) |
 | `make check ENV=<env>` | Dry run with a diff, changes nothing |
 | `make deploy ENV=<env>` | Real run. Protected environments also need `CONFIRM=apply-<env>` |
 | `make vault-init ENV=<env>` | Create the encrypted `vault.yml` of an environment |

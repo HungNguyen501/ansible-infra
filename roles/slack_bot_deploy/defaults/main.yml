@@ -6,6 +6,9 @@ slack_bot_deploy_dir: /var/workspace/agentic-slack-bot
 # The SLACK_BOT_SRC_DIR environment variable overrides the sibling checkout. The deploy workflows set it.
 slack_bot_deploy_src_dir: "{{ lookup('ansible.builtin.env', 'SLACK_BOT_SRC_DIR') | default(playbook_dir ~ '/../../agentic-slack-bot', true) }}"
 
+# Check that the source checkout is the revision of the image tag, without local edits, before anything is copied.
+slack_bot_deploy_verify_source: true
+
 # Compose services started by a deploy and restarted by the restart tag.
 slack_bot_deploy_services:
   - redis

@@ -11,6 +11,5 @@ ansible_aws_ssm_s3_addressing_style: virtual
 ansible_aws_ssm_region: us-east-1
 # Seconds the plugin waits for the host to answer a command. The default of 60 is shorter than an image pull and the compose wait.
 ansible_aws_ssm_timeout: 600
-ansible_become: true
 ansible_become_method: sudo
 ansible_become_user: root

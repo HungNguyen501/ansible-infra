@@ -39,7 +39,8 @@ syntax:
 		uv run ansible-playbook --syntax-check -i inventories/$$env $(PLAYBOOK) || exit 1; \
 	done
 
-test:  # molecule: every role that has a molecule/ folder. Needs a running Docker daemon.
+test:  # molecule: every role that has a molecule/ folder. Needs a running Docker daemon and the Compose v2 plugin.
+	@docker compose version >/dev/null 2>&1 || { echo "error: make test needs Docker with the Compose v2 plugin (docker compose version)" >&2; exit 1; }
 	@for dir in roles/*/molecule; do \
 		[ -d "$$dir" ] || continue; \
 		role=$$(dirname "$$dir"); \
@@ -69,7 +70,7 @@ help: Makefile
 	@echo "  make lint                                 - yamllint and ansible-lint (production profile)"
 	@echo "  make scan                                 - gitleaks secret scan of the history (needs Docker)"
 	@echo "  make syntax                               - ansible-playbook --syntax-check for every environment"
-	@echo "  make test                                 - Molecule tests of every role (needs Docker)"
+	@echo "  make test                                 - Molecule tests of every role (needs Docker with Compose v2)"
 	@echo "  make check ENV=<env> [LIMIT= TAGS= ...]   - Dry run with a diff, changes nothing"
 	@echo "  make deploy ENV=<env> [CONFIRM=apply-<env>] - Apply for real (protected envs need CONFIRM)"
 	@echo "  make vault-init ENV=<env>                 - Create the encrypted vault.yml of an environment"

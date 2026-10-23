@@ -1,0 +1,44 @@
+---
+# Runs on the controller, before anything is copied. The compose file and the skills must come from the revision that
+# built the image of slack_bot_deploy_image_tag: a tag of the form vYYYY.MM.DD.<short commit>. The deploy workflows check
+# the same thing after their checkout, so this is the guard for a deploy from a laptop. Turn it off with
+# -e slack_bot_deploy_verify_source=false when the source is not a git checkout.
+- name: Preflight | Read the commit of the source checkout
+  ansible.builtin.command:
+    argv: [git, -C, "{{ slack_bot_deploy_src_dir }}", rev-parse, HEAD]
+  delegate_to: localhost
+  become: false
+  run_once: true
+  check_mode: false
+  changed_when: false
+  register: slack_bot_deploy_preflight_head
+
+- name: Preflight | List the compose file and skills that differ from that commit
+  ansible.builtin.command:
+    argv: [git, -C, "{{ slack_bot_deploy_src_dir }}", status, --porcelain, --, docker-compose.yml, src/worker/skills]
+  delegate_to: localhost
+  become: false
+  run_once: true
+  check_mode: false
+  changed_when: false
+  register: slack_bot_deploy_preflight_dirty
+
+- name: Preflight | Assert the checkout is the revision of the image tag
+  ansible.builtin.assert:
+    that:
+      - slack_bot_deploy_image_tag is match('^v[0-9]{4}\\.[0-9]{2}\\.[0-9]{2}\\.[0-9a-f]+$')
+      - slack_bot_deploy_preflight_head.stdout.startswith(slack_bot_deploy_image_tag.split('.')[-1])
+    fail_msg: >-
+      {{ slack_bot_deploy_src_dir }} is at {{ slack_bot_deploy_preflight_head.stdout }}, but the image tag
+      {{ slack_bot_deploy_image_tag }} ends in the commit {{ slack_bot_deploy_image_tag.split('.')[-1] }}.
+      Check out the matching tag, for example:
+      git -C {{ slack_bot_deploy_src_dir }} checkout agentic-slack-bot-{{ slack_bot_deploy_image_tag }}
+  run_once: true
+
+- name: Preflight | Assert the compose file and skills have no local edits
+  ansible.builtin.assert:
+    that: slack_bot_deploy_preflight_dirty.stdout | trim | length == 0
+    fail_msg: >-
+      {{ slack_bot_deploy_src_dir }} has local edits that the image does not have, and they would be deployed:
+      {{ slack_bot_deploy_preflight_dirty.stdout | trim }}
+  run_once: true

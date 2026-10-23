@@ -12,6 +12,12 @@ argument_specs:
         description: >-
           Local checkout of the agentic-slack-bot repository. Defaults to the SLACK_BOT_SRC_DIR environment variable,
           else to a sibling of this repository.
+      slack_bot_deploy_verify_source:
+        type: bool
+        default: true
+        description: >-
+          Check before anything is copied that the source checkout is at the commit the image tag ends in and has no
+          local edits to docker-compose.yml or src/worker/skills. Turn off for a source that is not a git checkout.
       slack_bot_deploy_image_repo:
         type: str
         required: true

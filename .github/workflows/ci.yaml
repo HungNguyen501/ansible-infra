@@ -8,7 +8,7 @@ on:
       - reopened
       - synchronize
   push:
-    branches: [main]
+    branches: [master]
 
 permissions:
   contents: read
@@ -19,6 +19,53 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Decides whether Molecule has anything to test. A job-level condition, not paths-ignore on the workflow: a skipped job
+  # counts as passing for a required status check, while a workflow skipped by paths-ignore leaves the check pending.
+  # Lint always runs: its whitespace hooks and the secret scan cover markdown too.
+  changes:
+    name: "Changes"
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # the diff against the base needs its history
+
+      # Only markdown outside a Molecule scenario counts as documentation: the scenarios use .md files as test fixtures.
+      # Anything unclear (no base commit, an empty diff) counts as code, so the tests run.
+      - name: Look for changes other than documentation
+        id: filter
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${EVENT_NAME}" = "pull_request" ]; then base="${PR_BASE_SHA}"; else base="${PUSH_BEFORE_SHA}"; fi
+          if [[ -z "${base}" || "${base}" =~ ^0+$ ]] || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            echo "No base commit to compare with: run the tests."
+            echo "code=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          code=false
+          count=0
+          while IFS= read -r file; do
+            count=$((count + 1))
+            case "${file}" in
+              roles/*/molecule/*) code=true ;;
+              *.md) ;;
+              *) code=true ;;
+            esac
+          done < <(git diff --name-only "${base}...HEAD")
+          if [ "${count}" -eq 0 ]; then code=true; fi
+          echo "${count} file(s) changed, code=${code}"
+          echo "code=${code}" >> "${GITHUB_OUTPUT}"
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+
   lint:
     name: "Lint"
     runs-on: ubuntu-latest
@@ -45,6 +92,8 @@ jobs:
 
   molecule:
     name: "Molecule"
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

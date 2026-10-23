@@ -1,6 +1,6 @@
 # ansible-infra
 
-<!-- Describe the project, its commands and its rules here. Keep this file short. -->
+Ansible automation for ansible-infra. The project rules, commands and structure are in `AGENTS.md`: read it first.
 
 ## Skills
 

@@ -7,6 +7,7 @@ provisioner:
     group_vars:
       all:
         slack_bot_deploy_src_dir: "{{ lookup('ansible.builtin.env', 'MOLECULE_SCENARIO_DIRECTORY') }}/fixtures"
+        slack_bot_deploy_verify_source: false
         slack_bot_deploy_image_repo: example/slack-bot
         slack_bot_deploy_image_tag: v0.0.0
         slack_bot_deploy_secret_env:
